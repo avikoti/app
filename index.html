@@ -367,12 +367,13 @@ async function boot(){route();
 function viewAuth(){if(S.auth==='loading')return '<section class="panel"><p class="sub">Chargement…</p></section>';
  if(S.auth==='denied')return '<section class="panel"><h2>Accès réservé</h2><p class="sub">Ce compte n’a pas accès à l’administration.</p><button class="btn" data-act="logout">Se déconnecter</button></section>';
  if(S.auth==='error')return `<section class="panel"><h2>Connexion impossible</h2><p class="sub">${esc(S.autherr||'Erreur inconnue')}</p><button class="btn" data-act="logout">Réessayer</button></section>`;
- return `<section class="panel"><h2>Connexion administrateur</h2><p class="sub">Connectez-vous pour gérer les tontines.</p><form id="loginf"><label style="grid-column:1/-1">Adresse e-mail<input name="email" type="email" inputmode="email" autocomplete="username">${fe('loginf','email')}</label><label style="grid-column:1/-1">Mot de passe<input name="password" type="password" autocomplete="current-password">${fe('loginf','password')}</label><button class="btn main" type="submit">Se connecter</button></form></section>`}
-async function login(e){e.preventDefault();const f=new FormData(e.target),email=String(f.get('email')||'').trim(),password=String(f.get('password')||'');
- if(!email){fail('loginf','email','Saisissez votre adresse e-mail.',{email});return render()}
- if(!password){fail('loginf','password','Saisissez votre mot de passe.',{email});return render()}
+ return `<section class="panel"><h2>Connexion administrateur</h2><p class="sub">Connectez-vous pour gérer les tontines.</p><form id="loginf"><label style="grid-column:1/-1">Nom d’utilisateur<input name="user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30">${fe('loginf','user')}</label><label style="grid-column:1/-1">Code<input name="password" type="password" autocomplete="current-password">${fe('loginf','password')}</label><button class="btn main" type="submit">Se connecter</button></form></section>`}
+async function login(e){e.preventDefault();const f=new FormData(e.target),user=String(f.get('user')||'').trim().toLowerCase(),password=String(f.get('password')||'');
+ if(!user){fail('loginf','user','Saisissez votre nom d’utilisateur.',{user});return render()}
+ if(!password){fail('loginf','password','Saisissez votre code.',{user});return render()}
+ const email=user.replace(/[^a-z0-9._-]/g,'')+'@carnet-tontine.app';
  const{data,error}=await sb.auth.signInWithPassword({email,password});
- if(error){fail('loginf','password','Adresse e-mail ou mot de passe incorrect.',{email});return render()}
+ if(error){fail('loginf','password','Nom d’utilisateur ou code incorrect.',{user});return render()}
  S.err=null;await enter(data.session)}
 function fromTracking(d){const mb=d.membre,m=mkMember(mb.idn,mb.nom,mb.prenom,'',mb.quartier,{},null,mb.idn,(d.types||[]).map(t=>TNAME[t]||t));
  applyCards(m,(d.cartes||[]).map(c=>({id:c.id,card_id:c.carte,start_date:c.debut,stop_day:c.arret_jour,removed_from:c.retiree_le})));
