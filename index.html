@@ -304,6 +304,8 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .tb .tbody{display:none;gap:10px;padding:0 4px}
 .tb:has(input[name=type_t]:checked) .tbody,.tb:has(input[name=type_a]:checked) .tbody{display:grid}
 .tbody label{grid-column:auto}
+.gi{width:auto;min-width:40px;padding:0 9px;font-size:.78rem}
+.gi.big{width:auto;min-width:56px;padding:0 14px;font-size:.95rem}
 </style>
 </head>
 <body>
@@ -444,7 +446,7 @@ const maxC=id=>(CN(id)&&CN(id).type==='Koti'&&MB().cycles)||12;
 const ORD=k=>k===1?'1er':k+'e';
 const dfull=d=>new Date(START+(d-1)*864e5).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',timeZone:'UTC'});
 const mAmt=n=>S.hide?'••••••':fmt(n);
-const mLab=c=>c.v>=1000?c.v/1000+'K':c.v;
+const mLab=c=>c.type;
 const mEye=()=>`<button type="button" class="m-eye" data-act="meye" aria-label="${S.hide?'Afficher':'Masquer'} les montants" aria-pressed="${!!S.hide}"><svg viewBox="0 0 24 24" aria-hidden="true">${S.hide?'<path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0112 5c6 0 10 7 10 7a17 17 0 01-3.2 3.9M6.5 6.6C3.9 8.4 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 004.2 4.2"/>':'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'}</svg></button>`;
 function cyc(id){const c=MB().cards[id],tc=tcOf(id),mx=maxC(id),k=Math.min(mx,Math.max(1,Math.ceil(tc/31))),t=tc-31*(k-1);let p=poolOf(id);const all=[];for(let g=1;g<=31*k;g++){const due=dueOf(id,g),pd=p>=due?due:0;p-=pd;all.push({due,paid:pd})}
  const R=all.slice(31*(k-1)).map((x,i)=>{const d=i+1,st=x.due===0?'susp':x.paid>=x.due?'paid':d<t?'late':d===t?'due':'future';return{d,due:x.due,paid:x.paid,st}});
@@ -539,7 +541,7 @@ const I=d=>`<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const IC={plus:'<path d="M12 5v14M5 12h14"/>',userplus:'<circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3-6 7-6M18 9v6M15 12h6"/>',check:'<path d="M5 12l5 5L20 7"/>',coin:'<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h4a1.5 1.5 0 010 3h-3"/>',users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-4 3-6 7-6s7 2 7 6M17 5a3.5 3.5 0 010 6M19 15c2 .8 3 2.500 3 5"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'};
 function cardAgg(id){const r=each(()=>{if(!MB().cards[id].v.some(x=>x.t>0))return null;const R=rows(id);return{paid:poolOf(id),full:R.reduce((s,x)=>s+x.due,0),dueNow:sumRows(id,x=>x.due,TODAY),paidNow:sumRows(id,x=>x.paid,TODAY),days:Object.fromEntries(R.map(x=>[MB().cards[id].s+x.d-1,x.paid])),rest:Math.max(0,31-tcOf(id))}}).filter(Boolean),sum=k=>r.reduce((s,x)=>s+x[k],0);
  return{n:r.length,rest:Math.max(0,...r.map(x=>x.rest)),paid:sum('paid'),full:sum('full'),dueNow:sum('dueNow'),paidNow:sum('paidNow'),days:(()=>{const o={};r.forEach(x=>{for(const g in x.days)o[g]=(o[g]||0)+x.days[g]});return o})()}}
-function detail(id){const c=CN(id),a=cardAgg(id),pct=a.full?Math.round(a.paid/a.full*100):0,pn=a.dueNow?Math.round(a.paidNow/a.dueNow*100):0,ds=[5,4,3,2,1,0].map(k=>({d:TODAY-k,v:a.days[TODAY-k]||0})),mx=Math.max(1,...ds.map(x=>x.v)),avg=Math.round(ds.reduce((s0,x)=>s0+x.v,0)/6),pays=S.payments.filter(p=>p.card===id).slice().reverse(),lab=c.v>=1000?c.v/1000+'K':c.v;
+function detail(id){const c=CN(id),a=cardAgg(id),pct=a.full?Math.round(a.paid/a.full*100):0,pn=a.dueNow?Math.round(a.paidNow/a.dueNow*100):0,ds=[5,4,3,2,1,0].map(k=>({d:TODAY-k,v:a.days[TODAY-k]||0})),mx=Math.max(1,...ds.map(x=>x.v)),avg=Math.round(ds.reduce((s0,x)=>s0+x.v,0)/6),pays=S.payments.filter(p=>p.card===id).slice().reverse(),lab=c.type;
  return `<div class="dtop"><button class="ib" data-act="cback" aria-label="Retour au tableau de bord">‹</button><b>Détail de la carte</b><span></span></div>${msgHtml()}
  <div class="dhead"><span class="gi ${id} big">${lab}</span><div class="badge"><span class="bt">${pn} % encaissé</span><small>au ${dateOf(TODAY)}</small></div></div>
  <div><h2 class="dt">${c.name}</h2><p class="sub">${fmt(c.v)} par jour, ${a.n} membre${a.n>1?'s':''}</p></div>
@@ -560,7 +562,7 @@ function viewAdmin(){if(S.cdet)return detail(S.cdet);if(!S.mgrOn&&S.aview==='col
  <div class="m-hero"><span class="m-l">Total encaissé ${mEye()}</span><b class="m-big">${mAmt(p)}</b><div class="m-two"><div><small>Total Avance</small><b>${mAmt(advTotal())}</b></div><div><small>Total Reste</small><b>${mAmt(p-advTotal())}</b></div></div>
  <div class="acts2" style="grid-template-columns:repeat(${acts.length},1fr)">${acts.map(x=>x.h?`<a class="hact" href="${x.h}"><span class="c">${I(x.i)}</span>${x.l}</a>`:`<button type="button" class="hact" data-act="aview" data-id="collecte"><span class="c">${I(x.i)}</span>${x.l}</button>`).join('')}</div></div>
  <div class="sech"><h2>Vos cartes</h2><a href="#membres">Voir les membres ›</a></div>
- ${att?`<div class="glist">${CARDS.map(c=>{const g=cardAgg(c.id);if(!g.n)return '';const q=g.full?Math.round(g.paid/g.full*100):0;return `<button type="button" class="gcard" data-act="cdet" data-id="${c.id}" aria-label="Voir le détail de la ${c.name}"><div class="gh"><span class="gi ${c.id}">${c.v>=1000?c.v/1000+'K':c.v}</span><b>${c.name}</b><span class="chev">›</span></div><div class="gin"><div class="ga"><b>${fmt(g.paid)}</b><span>${fmt(g.full)}</span></div><div class="prog ${c.id}" role="progressbar" aria-label="${c.name} encaissée sur le cycle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${q}"><i style="width:${Math.min(100,q)}%"></i></div><div class="gf"><span>${g.rest} jours restants</span><b>${q} %</b></div></div></button>`}).join('')}</div>`:'<p class="empty">Aucune cotisation attendue pour l’instant. Inscrivez un membre et choisissez ses cartes.</p>'}
+ ${att?`<div class="glist">${CARDS.map(c=>{const g=cardAgg(c.id);if(!g.n)return '';const q=g.full?Math.round(g.paid/g.full*100):0;return `<button type="button" class="gcard" data-act="cdet" data-id="${c.id}" aria-label="Voir le détail de la ${c.name}"><div class="gh"><span class="gi ${c.id}">${c.type}</span><b>${c.name}</b><span class="chev">›</span></div><div class="gin"><div class="ga"><b>${fmt(g.paid)}</b><span>${fmt(g.full)}</span></div><div class="prog ${c.id}" role="progressbar" aria-label="${c.name} encaissée sur le cycle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${q}"><i style="width:${Math.min(100,q)}%"></i></div><div class="gf"><span>${g.rest} jours restants</span><b>${q} %</b></div></div></button>`}).join('')}</div>`:'<p class="empty">Aucune cotisation attendue pour l’instant. Inscrivez un membre et choisissez ses cartes.</p>'}
  <div class="grid">
   ${lateBefore?`<a class="stat" href="#membres"><b>${fmt(lateBefore)}</b><span>En retard (${lateCount} membre${lateCount>1?'s':''})</span></a>`:''}
   <div class="stat"><b>${fmt(bPaid)}</b><span>Bénéfice jour 31, sur ${fmt(bDue)} dus</span></div>
