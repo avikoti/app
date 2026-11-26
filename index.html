@@ -407,7 +407,7 @@ function rows(id){let p=poolOf(id);const t0=tcOf(id);return Array.from({length:3
  const st=due===0?'susp':paid>=due?'paid':d<t0?'late':d===t0?'due':'future';return{d,due,paid,st}})}
 const sumRows=(id,f,max)=>{const lim=max===undefined?31:max-MB().cards[id].s+1;return rows(id).filter(r=>r.d<=lim).reduce((s,r)=>s+f(r),0)};
 const owed=()=>held().reduce((s,c)=>s+sumRows(c.id,r=>r.due-r.paid,TODAY),0);
-function validAmounts(id){let s=0;return rows(id).filter(r=>r.due>r.paid).map(r=>s+=r.due)}
+function validAmounts(id){let p=poolOf(id),s=0;const out=[];for(let g=1;g<=31*maxC(id);g++){const due=dueOf(id,g),pd=p>=due?due:0;p-=pd;if(due>pd)out.push(s+=due)}return out}
 const retBase=id=>dueNow(id)*((CN(id)&&CN(id).type==='Koti'&&MB().cycles)||1);
 function stopCalc(id){const v=poolOf(id),ret=Math.min(retBase(id),v),ded=Math.min(advMember(),v-ret);return{v,ret,ded,refund:v-ret-ded}}
 const msgHtml=()=>{const m=S.msg;return m?`<div class="msg ${m.ok?'ok':''}" role="${m.ok?'status':'alert'}"><span>${esc(m.t)}</span><button class="x" data-act="closemsg" aria-label="Fermer le message">×</button></div>`:''};
@@ -658,7 +658,7 @@ document.addEventListener('click',e=>{
  if(act==='gocoll'){S.aview='collecte';S.pc=id;S.cdet=null}
  if(act==='askrev')S.cf=id;
  if(act==='keep')S.cf=null;
- if(act==='rev'){S.cf=null;const p=S.payments.find(x=>x.id==id),o=S.gm;S.gm=p.m;let s=0;const np=poolOf(p.card)-p.amount,bad=np!==0&&!Array.from({length:31},(_,i)=>s+=dueOf(p.card,i+1)).includes(np);S.gm=o;
+ if(act==='rev'){S.cf=null;const p=S.payments.find(x=>x.id==id),o=S.gm;S.gm=p.m;let s=0;const np=poolOf(p.card)-p.amount,bad=np!==0&&!Array.from({length:31*maxC(p.card)},(_,i)=>s+=dueOf(p.card,i+1)).includes(np);S.gm=o;
   if(bad){setMsg('Annulation impossible : le solde de la carte ne correspondrait plus à des jours entiers. Annulez d’abord les paiements plus récents.');return render()}
   p.status='annulé';const rid=crypto.randomUUID(),rrec='ANN-'+p.rec.slice(4)+'-'+rid.slice(0,4);S.payments.push({id:rid,rec:rrec,g:p.g,m:p.m,mc:p.mc,card:p.card,amount:-p.amount,mode:p.mode,ref:'',status:'confirmé'});dbw(async()=>{await upd('payments',{status:'annulé'},'id',p.id);await ins('payments',{id:rid,receipt_no:rrec,member_id:p.m,member_card_id:p.mc,amount:-p.amount,mode:p.mode,reverses_payment_id:p.id})});log(GM().prenom,`Annulation du reçu ${p.rec} par écriture inverse.`);setMsg('Paiement annulé par écriture inverse.',true)}
  if(act==='ok'||act==='no'){const q=S.requests.find(x=>x.id==id);if(decide(q,act==='ok'))setMsg('Décision enregistrée.',true)}
