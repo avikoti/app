@@ -306,6 +306,12 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .tbody label{grid-column:auto}
 .gi{width:auto;min-width:40px;padding:0 9px;font-size:.78rem}
 .gi.big{width:auto;min-width:56px;padding:0 14px;font-size:.95rem}
+.m-tabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--tint)}
+.m-tab{flex:1;border:0;border-radius:999px;background:none;color:var(--mute);font:700 .92rem inherit;font-family:inherit;padding:10px 12px;min-height:44px;cursor:pointer}
+.m-tab.m-on{background:var(--ink);color:var(--card)}
+.m-three{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.m-three b{font-size:.9rem;overflow-wrap:anywhere}
+.m-three small{font-size:.74rem}
 </style>
 </head>
 <body>
@@ -364,7 +370,7 @@ async function loadAll(){TODAY=Math.round((todayUTC()-START)/864e5)+1;await load
  R.forEach(chk);const[me,mt,mc,pa,ad,rf,au]=R.map(r=>r.data),mcCard=Object.fromEntries(mc.map(r=>[r.id,r.card_id]));
  S.members=me.map(r=>{const m=mkMember(r.id,r.nom,r.prenom,r.tel,r.quartier,{},'admin',r.idn,mt.filter(x=>x.member_id===r.id).map(x=>TNAME[x.type_id]));applyCards(m,mc.filter(x=>x.member_id===r.id));m.cycles=((mt.find(x=>x.member_id===r.id&&x.type_id==='tontine')||{}).cycles)||null;return m});
  S.payments=pa.map(p=>({id:p.id,rec:p.receipt_no,g:'admin',m:p.member_id,mc:p.member_card_id,card:mcCard[p.member_card_id],amount:p.amount,mode:p.mode,ref:p.mobile_money_id||'',status:p.status}));
- S.adv=ad.map(a=>({id:a.id,m:a.member_id,amount:a.amount,rec:a.recovered}));
+ S.adv=ad.map(a=>({id:a.id,m:a.member_id,amount:a.amount,rec:a.recovered,t:TNAME[a.type_id]||'Koti'}));
  S.refunds=rf.map(r=>({id:r.id,member:r.member_id,card:mcCard[r.member_card_id],mc:r.member_card_id,amount:r.amount,kept:r.kept,paid:r.paid}));
  S.audit=au.map(a=>({who:a.who,txt:a.txt}));
  S.seq=pa.reduce((mx,p)=>{const x=String(p.receipt_no).match(/^REC-\d+-(\d+)$/);return x?Math.max(mx,parseInt(x[1],10)):mx},0)+1;
@@ -400,18 +406,21 @@ const cardAt=(id,d)=>[...MB().cards[id].v].reverse().find(x=>x.from<=d).t;
 const dueOf=(id,d)=>{const c=MB().cards[id];return(c.stop!==null&&d>c.stop)?0:CN(id).v*cardAt(id,c.s+d-1)};
 const tcOf=id=>TODAY-MB().cards[id].s+1;
 const dueNow=id=>dueOf(id,tcOf(id));
-const held=()=>CARDS.filter(c=>MB().cards[c.id].v.some(x=>x.t>0));
+const held=t=>CARDS.filter(c=>(!t||c.type===t)&&MB().cards[c.id].v.some(x=>x.t>0));
+const tabT=l=>l.includes(S.tab)?S.tab:l[0];
+const mTabs=(l,T)=>`<div class="m-tabs" role="tablist" aria-label="Type de tontine">${l.map(t=>`<button type="button" role="tab" class="m-tab ${t===T?'m-on':''}" aria-selected="${t===T}" data-act="mtab" data-id="${t}">${t}</button>`).join('')}</div>`;
 const poolOf=id=>S.payments.filter(p=>p.m===S.gm&&p.card===id).reduce((s,p)=>s+p.amount,0);
-const pool=()=>S.payments.filter(p=>p.m===S.gm).reduce((s,p)=>s+p.amount,0);
-const advTotal=()=>S.adv.reduce((s,a)=>s+a.amount,0);
-const advMember=()=>S.adv.filter(a=>a.m===S.gm).reduce((s,a)=>s+a.amount-(a.rec||0),0);
+const pool=t=>S.payments.filter(p=>p.m===S.gm&&(!t||(CN(p.card)||{}).type===t)).reduce((s,p)=>s+p.amount,0);
+const advTotal=t=>S.adv.filter(a=>!t||a.t===t).reduce((s,a)=>s+a.amount,0);
+const advMember=t=>S.adv.filter(a=>a.m===S.gm&&(!t||a.t===t)).reduce((s,a)=>s+a.amount-(a.rec||0),0);
 function rows(id){let p=poolOf(id);const t0=tcOf(id);return Array.from({length:31},(_,i)=>{const d=i+1,due=dueOf(id,d),paid=p>=due?due:0;p-=paid;
  const st=due===0?'susp':paid>=due?'paid':d<t0?'late':d===t0?'due':'future';return{d,due,paid,st}})}
 const sumRows=(id,f,max)=>{const lim=max===undefined?31:max-MB().cards[id].s+1;return rows(id).filter(r=>r.d<=lim).reduce((s,r)=>s+f(r),0)};
-const owed=()=>held().reduce((s,c)=>s+sumRows(c.id,r=>r.due-r.paid,TODAY),0);
+const owed=t=>held(t).reduce((s,c)=>s+sumRows(c.id,r=>r.due-r.paid,TODAY),0);
 function validAmounts(id){let p=poolOf(id),s=0;const out=[];for(let g=1;g<=31*maxC(id);g++){const due=dueOf(id,g),pd=p>=due?due:0;p-=pd;if(due>pd)out.push(s+=due)}return out}
+const benef=id=>CN(id)&&CN(id).type==='Koti'?CN(id).v*(MB().cycles||1):0;
 const retBase=id=>dueNow(id)*((CN(id)&&CN(id).type==='Koti'&&MB().cycles)||1);
-function stopCalc(id){const v=poolOf(id),ret=Math.min(retBase(id),v),ded=Math.min(advMember(),v-ret);return{v,ret,ded,refund:v-ret-ded}}
+function stopCalc(id){const v=poolOf(id),ret=Math.min(retBase(id),v),ded=Math.min(advMember(CN(id).type),v-ret);return{v,ret,ded,refund:v-ret-ded}}
 const msgHtml=()=>{const m=S.msg;return m?`<div class="msg ${m.ok?'ok':''}" role="${m.ok?'status':'alert'}"><span>${esc(m.t)}</span><button class="x" data-act="closemsg" aria-label="Fermer le message">×</button></div>`:''};
 const setMsg=(t,ok)=>{const m={t,ok};S.msg=m;S.err=null;if(ok)setTimeout(()=>{if(S.msg===m){S.msg=null;render()}},12000)};
 const fail=(form,field,text,vals)=>{S.err={form,field,text,vals};S.msg=null};
@@ -448,20 +457,20 @@ const dfull=d=>new Date(START+(d-1)*864e5).toLocaleDateString('fr-FR',{day:'2-di
 const mAmt=n=>S.hide?'••••••':fmt(n);
 const mLab=c=>c.type;
 const mEye=()=>`<button type="button" class="m-eye" data-act="meye" aria-label="${S.hide?'Afficher':'Masquer'} les montants" aria-pressed="${!!S.hide}"><svg viewBox="0 0 24 24" aria-hidden="true">${S.hide?'<path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0112 5c6 0 10 7 10 7a17 17 0 01-3.2 3.9M6.5 6.6C3.9 8.4 2 12 2 12s4 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 004.2 4.2"/>':'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'}</svg></button>`;
-function cyc(id){const c=MB().cards[id],tc=tcOf(id),mx=maxC(id),k=Math.min(mx,Math.max(1,Math.ceil(tc/31))),t=tc-31*(k-1);let p=poolOf(id);const all=[];for(let g=1;g<=31*k;g++){const due=dueOf(id,g),pd=p>=due?due:0;p-=pd;all.push({due,paid:pd})}
- const R=all.slice(31*(k-1)).map((x,i)=>{const d=i+1,st=x.due===0?'susp':x.paid>=x.due?'paid':d<t?'late':d===t?'due':'future';return{d,due:x.due,paid:x.paid,st}});
- return{k,mx,t,R,s:c.s,paid:R.reduce((a,r)=>a+r.paid,0),full:R.reduce((a,r)=>a+r.due,0),owed:R.filter(r=>r.d<=t).reduce((a,r)=>a+r.due-r.paid,0),left:Math.max(0,31-t),end:c.s+31*k-1}}
+function cyc(id){const c=MB().cards[id],tc=tcOf(id),mx=maxC(id);let p=poolOf(id),g0=0;const all=[];for(let g=1;g<=31*mx;g++){const due=dueOf(id,g),pd=p>=due?due:0;p-=pd;all.push({due,paid:pd});if(!g0&&due>pd)g0=g}
+ const k=g0?Math.ceil(g0/31):c.stop===null?mx:Math.min(mx,Math.max(1,Math.ceil(tc/31))),t=tc-31*(k-1);
+ const R=all.slice(31*(k-1),31*k).map((x,i)=>{const d=i+1,st=x.due===0?'susp':x.paid>=x.due?'paid':d<t?'late':d===t?'due':'future';return{d,due:x.due,paid:x.paid,st}});
+ return{k,mx,t,R,s:c.s,paid:R.reduce((a,r)=>a+r.paid,0),full:R.reduce((a,r)=>a+r.due,0),owed:R.filter(r=>r.d<=t).reduce((a,r)=>a+r.due-r.paid,0),left:R.filter(r=>r.due>r.paid).length,end:c.s+31*k-1}}
 const mPays=(list,n)=>list.length?list.slice(0,n).map(p=>`<div class="tx"><span class="ti">${p.amount<0?'↗':'↙'}</span><div><b>${esc((CN(p.card)||{name:''}).name)}</b><small>${esc(p.mode)}, ${esc(p.rec)}</small></div><span class="ta ${p.amount<0?'neg':''}">${p.amount<0?'':'+'}${mAmt(p.amount)}</span></div>`).join(''):'<div class="m-empty"><b>Aucun paiement</b><p>Les paiements s’afficheront ici dès le premier versement.</p></div>';
-function mHome(ro){const m=MB(),hs=held(),cs=hs.map(c=>({c,y:cyc(c.id)})),tot=pool(),adv=S.adv.filter(a=>a.m===S.gm).reduce((s,a)=>s+a.amount,0),res=tot-adv,col=AV[m.id.charCodeAt(m.id.length-1)%AV.length],pays=S.payments.filter(p=>p.m===S.gm).slice().reverse();
+function mHome(ro){const m=MB(),types=m.types.filter(t=>t==='Koti'||t==='Foyer'),T=tabT(types.length?types:['Koti']),hs=held(T),cs=hs.map(c=>({c,y:cyc(c.id)})),tot=pool(T),adv=S.adv.filter(a=>a.m===S.gm&&a.t===T).reduce((s,a)=>s+a.amount,0),res=tot-adv,col=AV[m.id.charCodeAt(m.id.length-1)%AV.length],pays=S.payments.filter(p=>p.m===S.gm&&(CN(p.card)||{}).type===T).slice().reverse();
  const top=ro?`<div class="m-top"><div class="m-av" style="background:${col}" aria-hidden="true">${esc((m.prenom[0]+m.nom[0]).toUpperCase())}</div><div><b>${esc(nm(m))}</b><small>Identifiant ${esc(m.idn)}</small></div></div>`:'';
  return `${top}<div class="m-hero"><span class="m-l">Total versé ${mEye()}</span><b class="m-big">${mAmt(tot)}</b><div class="m-two"><div><small>Avance</small><b>${mAmt(adv)}</b></div><div><small>Reste</small><b>${mAmt(res)}</b></div></div></div>
+ ${types.length>1?mTabs(types,T):''}
  <div class="sech"><h2>Mes cartes</h2></div>
  ${hs.length?`<div class="m-hs">${cs.map(({c,y})=>{const q=y.full?Math.round(y.paid/y.full*100):0;return `<button type="button" class="gcard" data-act="mopen" data-id="${c.id}" aria-label="Voir le détail de la ${c.name}"><div class="gh"><span class="gi ${c.id}">${mLab(c)}</span><b>${c.name}<small class="m-sm">Cycle ${y.k} sur ${y.mx}</small></b><span class="chev">›</span></div><div class="gin"><div class="ga"><b>${mAmt(y.paid)}</b><span>${S.hide?'••••':fmt(y.full)}</span></div><div class="prog ${c.id}" role="progressbar" aria-label="${c.name} versée sur le cycle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${q}"><i style="width:${Math.min(100,q)}%"></i></div><div class="gf"><span>${y.left} tours restants</span><b>${q} %</b></div></div></button>`}).join('')}</div>`:'<div class="m-empty"><b>Aucune carte</b><p>Les cartes de ce membre s’afficheront ici dès que l’administrateur les aura choisies.</p></div>'}
- <div class="sech"><h2>Mes tontines</h2></div>
- <div class="m-types">${m.types.map(t=>{const n=hs.filter(c=>c.type===t).length;return `<div class="m-chip"><span>${t}<small>${n?n+' carte'+(n>1?'s':''):'Aucune carte'}</small></span></div>`}).join('')}</div>
  <div class="sech"><h2>Paiements récents</h2>${pays.length>5?`<button type="button" class="lnk" data-act="mall">${S.mall?'Voir moins':'Voir tout'}</button>`:''}</div>
  <div class="m-blk">${mPays(pays,S.mall?999:5)}</div>`}
-function mDetail(id){const c=CN(id),y=cyc(id),R=y.R,s0=y.s+31*(y.k-1),late=R.filter(r=>r.d<=y.t&&r.due>r.paid),fut=R.filter(r=>r.d>y.t&&r.d<=30&&r.due>0),d31=y.t<31&&R[30].due>0?R[30]:null,stp=MB().cards[id].stop,pays=S.payments.filter(p=>p.m===S.gm&&p.card===id).slice().reverse(),pad=d=>String(d).padStart(2,'0');
+function mDetail(id){const c=CN(id),y=cyc(id),R=y.R,s0=y.s+31*(y.k-1),late=R.filter(r=>r.d<=y.t&&r.due>r.paid),fut=R.filter(r=>r.d>y.t&&r.d<=30&&r.due>r.paid),d31=y.t<31&&R[30].due>R[30].paid?R[30]:null,stp=MB().cards[id].stop,pays=S.payments.filter(p=>p.m===S.gm&&p.card===id).slice().reverse(),pad=d=>String(d).padStart(2,'0');
  const tour=(r,cls,tag,amt)=>`<div class="m-tour ${cls}"><div class="m-th"><span class="m-n">${r.d}</span><span class="m-tag">${tag}</span></div><small>Tour ${pad(r.d)}, ${dateOf(s0+r.d-1)}</small><b>${mAmt(amt)}</b></div>`;
  return `<div class="dtop"><button type="button" class="ib" data-act="mback" aria-label="Retour à l’accueil">‹</button><b>${c.name}</b><span></span></div>
  <div class="m-hero"><span class="m-l">Montant versé ${mEye()}</span><b class="m-big">${mAmt(y.paid)}</b><div class="m-two"><div><small>Tours restants</small><b>${y.left}</b></div><div><small>Nombre du cycle</small><b>${y.k} sur ${y.mx}</b></div></div></div>
@@ -507,12 +516,12 @@ async function suivi(e){e.preventDefault();const f=new FormData(e.target),raw=St
  if(error){fail('suivif','idn',/trop_d_essais/.test(error.message||'')?'Trop d’essais. Réessayez dans quelques minutes.':'Service indisponible. Réessayez plus tard.',v);return render()}
  if(!data){fail('suivif','idn','Identifiant non reconnu. Vérifiez-le ou demandez-le à votre administrateur.',v);return render()}
  const m=fromTracking(data);S.members=[m];S.gm=m.id;S.suivi=m;S.err=null;S.msg=null;render()}
-function stopCard(mid,cid){const o=S.gm;S.gm=mid;const k=stopCalc(cid),cc=MB().cards[cid];cc.stop=tcOf(cid);const stopv=cc.stop,mcid=cc.mcid,advUp=[];{let left=k.ded;S.adv.filter(a=>a.m===mid).forEach(a=>{const t=Math.min(left,a.amount-(a.rec||0));if(t>0){a.rec=(a.rec||0)+t;advUp.push([a.id,a.rec])}left-=t})}
+function stopCard(mid,cid){const o=S.gm;S.gm=mid;const k=stopCalc(cid),cc=MB().cards[cid];cc.stop=tcOf(cid);const stopv=cc.stop,mcid=cc.mcid,advUp=[];{let left=k.ded;S.adv.filter(a=>a.m===mid&&a.t===CN(cid).type).forEach(a=>{const t=Math.min(left,a.amount-(a.rec||0));if(t>0){a.rec=(a.rec||0)+t;advUp.push([a.id,a.rec])}left-=t})}
  const rid=crypto.randomUUID();S.refunds.push({id:rid,member:mid,card:cid,mc:mcid,amount:k.refund,kept:k.ret,paid:false});
  dbw(async()=>{await upd('member_cards',{stop_day:stopv},'id',mcid);for(const[aid,r] of advUp)await upd('advances',{recovered:r},'id',aid);await ins('refunds',{id:rid,member_id:mid,member_card_id:mcid,amount:k.refund,kept:k.ret})});
  log('Admin',`Arrêt de la ${CN(cid).name} pour ${nm(MB())} : retenue ${fmt(k.ret)}, remboursement ${fmt(k.refund)}.`);S.gm=o;return k}
 function stopPanel(){if(!S.members.length)return '';const o=S.gm,mem=S.members.find(m=>m.id===S.sm)||S.members[0];S.gm=mem.id;
- const act=held().filter(c=>MB().cards[c.id].stop===null),cur=act.find(c=>c.id===S.sc)||act[0],k=cur?stopCalc(cur.id):null,cy=(cur&&cur.type==='Koti'&&mem.cycles)||1,rb=cur?retBase(cur.id):0;S.gm=o;
+ const act=held(tabT(['Koti','Foyer'])).filter(c=>MB().cards[c.id].stop===null),cur=act.find(c=>c.id===S.sc)||act[0],k=cur?stopCalc(cur.id):null,cy=(cur&&cur.type==='Koti'&&mem.cycles)||1,rb=cur?retBase(cur.id):0;S.gm=o;
  return `<section class="panel" id="arret"><h2>Arrêter la carte</h2><p class="sub">Choisissez le membre et la carte. La retenue est le bénéfice de l’organisateur : le montant de la carte multiplié par le nombre de cycles choisi par le membre. Les avances non remboursées sont aussi déduites.</p>
   <div class="srow"><label>Membre<select id="sm">${S.members.map(m=>`<option value="${m.id}" ${m.id===mem.id?'selected':''}>${esc(nm(m))}</option>`).join('')}</select></label><label>Carte<select id="sc" ${cur?'':'disabled'}>${cur?act.map(c=>`<option value="${c.id}" ${c.id===cur.id?'selected':''}>${c.name}</option>`).join(''):'<option>Aucune carte active</option>'}</select></label></div>
   ${cur?`<div class="grid" style="margin-top:12px"><div class="stat"><b>${fmt(k.v)}</b><span>Versé</span></div><div class="stat"><b>${fmt(k.ret)}</b><span>Retenu</span></div><div class="stat"><b>${fmt(k.ded)}</b><span>Avances déduites</span></div><div class="stat"><b>${fmt(k.refund)}</b><span>Remboursable</span></div></div>
@@ -531,8 +540,8 @@ function tools(){if(!S.members.length)return regSec();
   <label>Mode<select name="mode">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></label>
   <label>Mobile Money ID<input name="ref" maxlength="40" placeholder="5 derniers chiffres" inputmode="numeric" autocomplete="off">${fe('payf','ref')}</label>
   <button class="btn main" type="submit">Enregistrer et éditer le reçu</button></form></section>
- <section class="panel"><h2>${S.mgrOn?'Demande d’avance':'Accorder une avance'}</h2><p class="sub">${S.mgrOn?'Le membre fait sa demande au gestionnaire, qui la soumet. L’administrateur la valide.':'Vous accordez l’avance directement.'} Elle porte sur le total versé sur toutes les cartes du membre. Disponible : <b>${fmt(Math.max(0,pool()-advMember()))}</b>.</p>
-  <form id="advf"><label>Montant (FCFA)<input name="a" type="number" min="1" step="1" inputmode="numeric">${fe('advf','a')}</label><button class="btn main" type="submit">${S.mgrOn?'Soumettre la demande':'Accorder l’avance'}</button></form>
+ <section class="panel"><h2>${S.mgrOn?'Demande d’avance':'Accorder une avance'}</h2><p class="sub">${S.mgrOn?'Le membre fait sa demande au gestionnaire, qui la soumet. L’administrateur la valide.':'Vous accordez l’avance directement.'} Elle porte sur le total versé sur toutes les cartes du membre. Disponible : ${MB().types.map(t=>`<b>${t} ${fmt(Math.max(0,pool(t)-advMember(t)))}</b>`).join(', ')}.</p>
+  <form id="advf"><label>Type<select name="t">${MB().types.map(t=>`<option>${t}</option>`).join('')}</select>${fe('advf','t')}</label><label>Montant (FCFA)<input name="a" type="number" min="1" step="1" inputmode="numeric">${fe('advf','a')}</label><button class="btn main" type="submit">${S.mgrOn?'Soumettre la demande':'Accorder l’avance'}</button></form>
   ${S.requests.filter(r=>r.type==='avance').map(r=>`<div class="row" style="margin-top:8px"><span><b>${esc(mname(r.member))}</b><br><small class="sub">${esc(r.detail)}</small></span><b>${r.status}</b></div>`).join('')}</section>
 
  <section class="panel"><h2>Paiements</h2><p class="sub">Un paiement confirmé ne s’efface pas : « Annuler » crée une écriture inverse liée.</p>${payTable(S.payments,true,true)}</section>`}
@@ -550,31 +559,31 @@ function detail(id){const c=CN(id),a=cardAgg(id),pct=a.full?Math.round(a.paid/a.
  <section class="panel"><h2>Paiements</h2>${pays.length?pays.map(p=>`<div class="tx"><span class="ti">${p.amount<0?'↗':'↙'}</span><div><b>${esc(mname(p.m))}</b><small>${esc(p.mode)}, ${esc(p.rec)}</small></div><span class="ta ${p.amount<0?'neg':''}">${p.amount<0?'':'+'}${fmt(p.amount)}</span></div>`).join(''):'<p class="empty">Aucun paiement sur cette carte.</p>'}</section>
  ${S.mgrOn?'':`<button class="fab" data-act="gocoll" data-id="${id}">+ Enregistrer une collecte</button>`}`}
 const aseg=()=>S.mgrOn?'':`<div class="seg" role="group" aria-label="Section">${[['tableau','Tableau de bord'],['collecte','Opérations']].map(([k,l])=>`<button type="button" class="btn ${(S.aview||'tableau')===k?'main':''}" data-act="aview" data-id="${k}" aria-pressed="${(S.aview||'tableau')===k}">${l}</button>`).join('')}</div>`;
-function viewAdmin(){if(S.cdet)return detail(S.cdet);if(!S.mgrOn&&S.aview==='collecte')return S.members.length?aseg()+dash()+tools():aseg()+msgHtml()+regSec();
- const att=sumAll(()=>held().reduce((s,c)=>s+sumRows(c.id,r=>r.due,TODAY),0)),p=S.payments.reduce((s,x)=>s+x.amount,0);
- const bDue=sumAll(()=>held().reduce((s,c)=>s+rows(c.id)[30].due,0)),bPaid=sumAll(()=>held().reduce((s,c)=>s+rows(c.id)[30].paid,0));
- const paidDue=sumAll(()=>held().reduce((s,c)=>s+sumRows(c.id,r=>r.paid,TODAY),0));
- const lateOf=()=>held().reduce((s,c)=>s+sumRows(c.id,r=>r.due-r.paid,TODAY-1),0),lateBefore=sumAll(lateOf),lateCount=each(lateOf).filter(x=>x>0).length,reste=Math.max(0,att-paidDue),pct=att?Math.round(paidDue/att*100):0,refTot=S.refunds.reduce((s,r)=>s+r.amount,0);
+function viewAdmin(){const T=tabT(['Koti','Foyer']);if(S.cdet)return detail(S.cdet);if(!S.mgrOn&&S.aview==='collecte')return S.members.length?aseg()+dash()+tools():aseg()+msgHtml()+regSec();
+ const att=sumAll(()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.due,TODAY),0)),p=S.payments.filter(x=>(CN(x.card)||{}).type===T).reduce((s,x)=>s+x.amount,0);
+ const bDue=sumAll(()=>held(T).reduce((s,c)=>s+rows(c.id)[30].due,0)),bPaid=sumAll(()=>held(T).reduce((s,c)=>s+rows(c.id)[30].paid,0)),bTot=sumAll(()=>held(T).reduce((s,c)=>s+benef(c.id),0));
+ const paidDue=sumAll(()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.paid,TODAY),0));
+ const lateOf=()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.due-r.paid,TODAY-1),0),lateBefore=sumAll(lateOf),lateCount=each(lateOf).filter(x=>x>0).length,reste=Math.max(0,att-paidDue),pct=att?Math.round(paidDue/att*100):0,refTot=S.refunds.filter(r=>(CN(r.card)||{}).type===T).reduce((s,r)=>s+r.amount,0);
  const pend=S.requests.filter(r=>r.status==='soumise');
  const acts=S.mgrOn?[{h:'#membres',l:'Membres',i:IC.users},{h:'#avances',l:'Avances',i:IC.coin},{h:'#parametres',l:'Réglages',i:IC.gear}]:[{l:'Collecter',i:IC.plus},{l:'Inscrire',i:IC.userplus},{h:'#avances',l:'Avances',i:IC.coin}];
  const lbl=r=>r.type==='arrêt'?'Arrêt de la '+CN(r.card).name:r.type==='avance'?'Avance':'Changement de cartes';
  return `${aseg()}${msgHtml()}
- <div class="m-hero"><span class="m-l">Total encaissé ${mEye()}</span><b class="m-big">${mAmt(p)}</b><div class="m-two"><div><small>Total Avance</small><b>${mAmt(advTotal())}</b></div><div><small>Total Reste</small><b>${mAmt(p-advTotal())}</b></div></div>
+ <div class="m-hero"><span class="m-l">Total encaissé ${mEye()}</span><b class="m-big">${mAmt(p)}</b><div class="m-two m-three"><div><small>Total Avance</small><b>${mAmt(advTotal(T))}</b></div><div><small>Total Bénéfice</small><b>${mAmt(bTot)}</b></div><div><small>Total Reste</small><b>${mAmt(p-advTotal(T))}</b></div></div>
  <div class="acts2" style="grid-template-columns:repeat(${acts.length},1fr)">${acts.map(x=>x.h?`<a class="hact" href="${x.h}"><span class="c">${I(x.i)}</span>${x.l}</a>`:`<button type="button" class="hact" data-act="aview" data-id="collecte"><span class="c">${I(x.i)}</span>${x.l}</button>`).join('')}</div></div>
+ ${mTabs(['Koti','Foyer'],T)}
  <div class="sech"><h2>Vos cartes</h2><a href="#membres">Voir les membres ›</a></div>
- ${att?`<div class="glist">${CARDS.map(c=>{const g=cardAgg(c.id);if(!g.n)return '';const q=g.full?Math.round(g.paid/g.full*100):0;return `<button type="button" class="gcard" data-act="cdet" data-id="${c.id}" aria-label="Voir le détail de la ${c.name}"><div class="gh"><span class="gi ${c.id}">${c.type}</span><b>${c.name}</b><span class="chev">›</span></div><div class="gin"><div class="ga"><b>${fmt(g.paid)}</b><span>${fmt(g.full)}</span></div><div class="prog ${c.id}" role="progressbar" aria-label="${c.name} encaissée sur le cycle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${q}"><i style="width:${Math.min(100,q)}%"></i></div><div class="gf"><span>${g.rest} jours restants</span><b>${q} %</b></div></div></button>`}).join('')}</div>`:'<p class="empty">Aucune cotisation attendue pour l’instant. Inscrivez un membre et choisissez ses cartes.</p>'}
+ ${att?`<div class="glist">${CARDS.filter(c=>c.type===T).map(c=>{const g=cardAgg(c.id);if(!g.n)return '';const q=g.full?Math.round(g.paid/g.full*100):0;return `<button type="button" class="gcard" data-act="cdet" data-id="${c.id}" aria-label="Voir le détail de la ${c.name}"><div class="gh"><span class="gi ${c.id}">${c.type}</span><b>${c.name}</b><span class="chev">›</span></div><div class="gin"><div class="ga"><b>${fmt(g.paid)}</b><span>${fmt(g.full)}</span></div><div class="prog ${c.id}" role="progressbar" aria-label="${c.name} encaissée sur le cycle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${q}"><i style="width:${Math.min(100,q)}%"></i></div><div class="gf"><span>${g.rest} jours restants</span><b>${q} %</b></div></div></button>`}).join('')}</div>`:'<p class="empty">Aucune cotisation attendue pour l’instant. Inscrivez un membre et choisissez ses cartes.</p>'}
  <div class="grid">
   ${lateBefore?`<a class="stat" href="#membres"><b>${fmt(lateBefore)}</b><span>En retard (${lateCount} membre${lateCount>1?'s':''})</span></a>`:''}
-  <div class="stat"><b>${fmt(bPaid)}</b><span>Bénéfice jour 31, sur ${fmt(bDue)} dus</span></div>
-  <div class="stat"><b>${fmt(refTot)}</b><span>Remboursements validés</span></div></div>
+    <div class="stat"><b>${fmt(refTot)}</b><span>Remboursements validés</span></div></div>
  ${S.mgrOn?`<section class="panel"><h2>Gestionnaires</h2><div class="wrap"><table><thead><tr><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>Quartier</th><th class="n">Membres</th><th class="n">Collecté</th><th class="n">Espèces à remettre</th></tr></thead><tbody>${S.managers.map(g=>{const pp=S.payments.filter(p=>p.g===g.id);return `<tr><td data-label="Nom">${esc(g.nom)}</td><td data-label="Prénom">${esc(g.prenom)}</td><td data-label="Téléphone">${esc(g.tel)}</td><td data-label="Quartier">${esc(g.quartier)}</td><td class="n" data-label="Membres">${S.members.filter(m=>m.g===g.id).length}</td><td class="n" data-label="Collecté">${fmt(pp.reduce((s,p)=>s+p.amount,0))}</td><td class="n" data-label="Espèces à remettre">${fmt(pp.filter(p=>p.mode==='Espèces').reduce((s,p)=>s+p.amount,0))}</td></tr>`}).join('')}</tbody></table></div>
   <h3 style="margin-top:16px">Créer un gestionnaire</h3><form id="gestf">${pfields('gestf')}<button class="btn main" type="submit">Créer le gestionnaire</button></form></section>`:''}
- <section class="panel" id="membres"><h2>Membres</h2><div class="wrap"><table><thead><tr><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>Quartier</th>${S.mgrOn?'<th>Gestionnaire</th>':''}<th>Types</th><th>Cartes</th><th class="n">Versé</th><th class="n">Reste dû</th></tr></thead><tbody>${each(m=>`<tr><td data-label="Nom">${esc(m.nom)}</td><td data-label="Prénom">${esc(m.prenom)}</td><td data-label="Téléphone">${esc(m.tel)}</td><td data-label="Quartier">${esc(m.quartier)}</td>${S.mgrOn?`<td data-label="Gestionnaire">${esc(gn(m.g))}</td>`:''}<td data-label="Types">${esc(m.types.join(', '))}</td><td data-label="Cartes">${held().map(c=>c.name+(m.cards[c.id].stop!==null?' (arrêtée)':'')).join(', ')||'aucune'}</td><td class="n" data-label="Versé">${fmt(pool())}</td><td class="n" data-label="Reste dû">${fmt(owed())}</td></tr>`).join('')}</tbody></table></div></section>
+ <section class="panel" id="membres"><h2>Membres</h2><div class="wrap"><table><thead><tr><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>Quartier</th>${S.mgrOn?'<th>Gestionnaire</th>':''}<th>Types</th><th>Cartes</th><th class="n">Versé</th><th class="n">Reste dû</th></tr></thead><tbody>${each(m=>!m.types.includes(T)?'':`<tr><td data-label="Nom">${esc(m.nom)}</td><td data-label="Prénom">${esc(m.prenom)}</td><td data-label="Téléphone">${esc(m.tel)}</td><td data-label="Quartier">${esc(m.quartier)}</td>${S.mgrOn?`<td data-label="Gestionnaire">${esc(gn(m.g))}</td>`:''}<td data-label="Types">${esc(m.types.join(', '))}</td><td data-label="Cartes">${held(T).map(c=>c.name+(m.cards[c.id].stop!==null?' (arrêtée)':'')).join(', ')||'aucune'}</td><td class="n" data-label="Versé">${fmt(pool(T))}</td><td class="n" data-label="Reste dû">${fmt(owed(T))}</td></tr>`).join('')}</tbody></table></div></section>
  ${pend.length?`<section class="panel" id="demandes"><h2>Demandes à valider</h2>${pend.map(r=>`<div class="row" style="margin-bottom:8px"><span><b>${lbl(r)}</b> pour ${esc(mname(r.member))}<br><small class="sub">${esc(r.detail)} Soumis par ${esc(r.by)}.</small></span><span><button class="btn main" data-act="ok" data-id="${r.id}">Approuver</button> <button class="btn warn" data-act="no" data-id="${r.id}">Refuser</button></span></div>`).join('')}</section>`:''}
  ${stopPanel()}
- ${S.refunds.length?`<section class="panel"><h2>Remboursements</h2>${S.refunds.map(r=>`<div class="row" style="margin-bottom:8px"><span>${fmt(r.amount)} à ${esc(mname(r.member))} (${CN(r.card).name}, retenue ${fmt(r.kept)})</span>${r.paid?'<b>payé</b>':`<button class="btn main" data-act="payref" data-id="${r.id}">Marquer comme payé</button>`}</div>`).join('')}</section>`:''}
- <section class="panel" id="avances"><h2>Avances</h2><p class="sub">Argent remis à un membre avant la fin du cycle, sur demande du gestionnaire et après votre validation. Chaque avance est déduite du premier remboursement du membre. Total accordé : ${fmt(advTotal())}.</p>
-  ${S.adv.length?`<div class="wrap"><table><tbody>${S.adv.map(a=>`<tr><td>${esc(mname(a.m))}</td><td>${fmt(a.amount)}</td><td>${(a.rec||0)>=a.amount?'déduite':'à déduire'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">Aucune avance accordée.</p>'}</section>
+ ${S.refunds.some(r=>(CN(r.card)||{}).type===T)?`<section class="panel"><h2>Remboursements</h2>${S.refunds.filter(r=>(CN(r.card)||{}).type===T).map(r=>`<div class="row" style="margin-bottom:8px"><span>${fmt(r.amount)} à ${esc(mname(r.member))} (${CN(r.card).name}, retenue ${fmt(r.kept)})</span>${r.paid?'<b>payé</b>':`<button class="btn main" data-act="payref" data-id="${r.id}">Marquer comme payé</button>`}</div>`).join('')}</section>`:''}
+ <section class="panel" id="avances"><h2>Avances</h2><p class="sub">Argent remis à un membre avant la fin du cycle, sur demande du gestionnaire et après votre validation. Chaque avance est déduite du premier remboursement du membre. Total accordé : ${fmt(advTotal(T))}.</p>
+  ${S.adv.some(a=>a.t===T)?`<div class="wrap"><table><tbody>${S.adv.filter(a=>a.t===T).map(a=>`<tr><td>${esc(mname(a.m))}</td><td>${fmt(a.amount)}</td><td>${(a.rec||0)>=a.amount?'déduite':'à déduire'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">Aucune avance accordée.</p>'}</section>
  <section class="panel" id="liens"><h2>Liens de suivi</h2><p class="sub">Chaque membre a un identifiant. Envoyez-lui le lien avec son identifiant : il saisit cet identifiant pour voir ses cartes, ses calendriers et ses paiements, sans pouvoir rien modifier.</p>
   ${S.members.map(m=>`<div class="row" style="margin-bottom:8px"><span><b>${esc(nm(m))}</b><br><small class="sub">Identifiant ${esc(m.idn)}</small></span><span class="lk"><button type="button" class="btn" data-act="copylink" data-id="${m.id}">Copier le lien</button><a class="btn" href="${waLink(m)}" target="_blank" rel="noopener" data-act="sentwa" data-id="${m.id}">Envoyer par WhatsApp</a><a class="btn" href="${linkOf(m)}" target="_blank" rel="noopener">Aperçu</a></span></div>`).join('')}</section>
  <section class="panel" id="parametres"><h2>Paramètres</h2><p class="sub">Catalogue : ${CARDS.map(c=>c.name).join(', ')}. Retenue à l’arrêt : le bénéfice de l’organisateur, soit le montant de la carte multiplié par le nombre de cycles choisi.</p>
@@ -607,11 +616,12 @@ function personForm(e,form,ok){e.preventDefault();const f=new FormData(e.target)
 const inscrire=e=>personForm(e,'regf',(v,T,f)=>{const id=crypto.randomUUID();const idn=newId(),types=[...(f.get('type_t')?['Koti']:[]),...(f.get('type_a')?['Foyer']:[])],cyc0=f.get('type_t')?parseInt(f.get('cycles'),10):null,chosen=CARDS.filter(c=>types.includes(c.type)&&f.get('card_'+c.id)),mcs=[];const m=mkMember(id,v.nom,v.prenom,T,v.quartier,{},S.gg,idn,types);m.cycles=cyc0;chosen.forEach(c=>{const cc=m.cards[c.id];cc.s=TODAY;cc.v=[{from:1,t:0},{from:TODAY,t:1}];cc.stop=null;cc.mcid=crypto.randomUUID();m.draft[c.id]=1;mcs.push({id:cc.mcid,member_id:id,card_id:c.id,start_date:isoOfDay(TODAY)})});S.members.push(m);S.gm=id;dbw(async()=>{await ins('members',{id,idn,nom:v.nom,prenom:v.prenom,tel:T,quartier:v.quartier});await ins('member_types',types.map(t=>({member_id:id,type_id:TID[t],cycles:t==='Koti'?cyc0:null})));if(mcs.length)await ins('member_cards',mcs)});log(GM().prenom,`Membre inscrit : ${v.prenom} ${v.nom}, quartier ${v.quartier}.`);setMsg(`${v.prenom} ${v.nom} est inscrit (${types.join(' et ')}${cyc0?', '+cyc0+' mois':''}), identifiant ${idn}. Cartes : ${chosen.map(c=>c.name).join(', ')}. Son lien de suivi est dans « Liens de suivi ».`,true)});
 const creerG=e=>personForm(e,'gestf',(v,T)=>{S.managers.push({id:'g'+(S.managers.length+1),nom:v.nom,prenom:v.prenom,tel:T,quartier:v.quartier});log('Admin',`Gestionnaire créé : ${v.prenom} ${v.nom}, quartier ${v.quartier}.`);setMsg(`${v.prenom} ${v.nom} est créé comme gestionnaire.`,true)});
 
-function giveAdv(e){e.preventDefault();const f=new FormData(e.target),nraw=String(f.get('a')||'').trim(),a=/^\d+$/.test(nraw)?parseInt(nraw,10):NaN,room=pool()-advMember(),v={a:f.get('a')};
- if(!Number.isInteger(a)||a<=0)fail('advf','a','Saisissez un montant entier supérieur à 0.',v);
- else if(room<=0)fail('advf','a','Rien n’est disponible : le total versé par ce membre est déjà couvert par des avances.',v);
- else if(a>room)fail('advf','a',`L’avance dépasse le total versé par ce membre, moins les avances déjà accordées : ${fmt(room)} au plus.`,v);
- else{S.requests.push({id:S.rid++,type:'avance',status:'soumise',member:S.gm,amount:a,by:BYG(),detail:`${fmt(a)}, sur le total versé.`});log(GM().prenom,`Demande d’avance de ${fmt(a)} soumise pour ${nm(MB())}.`);if(S.mgrOn)setMsg('Demande d’avance envoyée à l’administrateur.',true);else if(decide(S.requests[S.requests.length-1],true))setMsg('Avance accordée.',true)}
+function giveAdv(e){e.preventDefault();const f=new FormData(e.target),nraw=String(f.get('a')||'').trim(),a=/^\d+$/.test(nraw)?parseInt(nraw,10):NaN,t=String(f.get('t')||''),room=pool(t)-advMember(t),v={a:f.get('a'),t};
+ if(!t)fail('advf','t','Choisissez le type de tontine.',v);
+ else if(!Number.isInteger(a)||a<=0)fail('advf','a','Saisissez un montant entier supérieur à 0.',v);
+ else if(room<=0)fail('advf','a','Rien n’est disponible : le total versé par ce membre sur ce type est déjà couvert par des avances.',v);
+ else if(a>room)fail('advf','a',`L’avance dépasse le total versé sur ce type, moins les avances déjà accordées : ${fmt(room)} au plus.`,v);
+ else{S.requests.push({id:S.rid++,type:'avance',t,status:'soumise',member:S.gm,amount:a,by:BYG(),detail:`${fmt(a)}, sur le total versé ${t}.`});log(GM().prenom,`Demande d’avance de ${fmt(a)} soumise pour ${nm(MB())}.`);if(S.mgrOn)setMsg('Demande d’avance envoyée à l’administrateur.',true);else if(decide(S.requests[S.requests.length-1],true))setMsg('Avance accordée.',true)}
  render()}
 
 function pay(e){e.preventDefault();const f=new FormData(e.target),id=f.get('card'),nraw=String(f.get('tours')||'').trim(),n=/^\d+$/.test(nraw)?parseInt(nraw,10):NaN,mode=f.get('mode'),ref=String(f.get('ref')||'').trim(),v={card:id,tours:f.get('tours'),mode,ref:f.get('ref')},w=id?validAmounts(id):[],tt=k=>k+' tour'+(k>1?'s':'');
@@ -626,11 +636,11 @@ function pay(e){e.preventDefault();const f=new FormData(e.target),id=f.get('card
 
 function decide(q,okk){const o=S.gm;S.gm=q.member;
   if(!okk){q.status='refusée';log('Admin',`Demande ${q.type} refusée.`)}
-  else if(q.type==='avance'&&q.amount>pool()-advMember()){S.gm=o;setMsg('Validation impossible : l’avance dépasse le montant versé disponible.');return false}
+  else if(q.type==='avance'&&q.amount>pool(q.t)-advMember(q.t)){S.gm=o;setMsg('Validation impossible : l’avance dépasse le montant versé disponible.');return false}
   else{q.status='approuvée';
-   if(q.type==='avance'){{const aid=crypto.randomUUID();S.adv.push({id:aid,m:q.member,amount:q.amount,rec:0});dbw(()=>ins('advances',{id:aid,member_id:q.member,amount:q.amount,granted_by:'Admin'}))}log('Admin',`Avance de ${fmt(q.amount)} validée pour ${nm(MB())}.`)}
+   if(q.type==='avance'){{const aid=crypto.randomUUID();S.adv.push({id:aid,m:q.member,amount:q.amount,rec:0,t:q.t});dbw(()=>ins('advances',{id:aid,member_id:q.member,amount:q.amount,granted_by:'Admin',type_id:TID[q.t]}))}log('Admin',`Avance de ${fmt(q.amount)} validée pour ${nm(MB())}.`)}
    else if(q.type==='changement'){CARDS.forEach(c=>{const cc=MB().cards[c.id];if(q.sel[c.id]!==cardAt(c.id,TODAY)){if(q.sel[c.id]){cc.s=TODAY;cc.v=[{from:TODAY,t:1}];cc.stop=null;cc.mcid=crypto.randomUUID();const mcid=cc.mcid,mid=q.member,cid=c.id;dbw(()=>ins('member_cards',{id:mcid,member_id:mid,card_id:cid,start_date:isoOfDay(TODAY)}))}else{cc.v.push({from:TODAY+1,t:0});const mcid=cc.mcid;if(mcid)dbw(()=>upd('member_cards',{removed_from:isoOfDay(TODAY+1)},'id',mcid))}}});log('Admin',`Changement approuvé pour ${nm(MB())} : une carte ajoutée commence au jour 1.`)}
-   else{const k=stopCalc(q.card);MB().cards[q.card].stop=tcOf(q.card);{let left=k.ded;S.adv.filter(a=>a.m===q.member).forEach(a=>{const t=Math.min(left,a.amount-(a.rec||0));a.rec=(a.rec||0)+t;left-=t})}S.refunds.push({id:S.rid++,member:q.member,card:q.card,amount:k.refund,kept:k.ret,paid:false});log('Admin',`Arrêt de la ${CN(q.card).name} approuvé pour ${nm(MB())} : retenue ${fmt(k.ret)}, remboursement ${fmt(k.refund)}.`)}}
+   else{const k=stopCalc(q.card);MB().cards[q.card].stop=tcOf(q.card);{let left=k.ded;S.adv.filter(a=>a.m===q.member&&a.t===CN(q.card).type).forEach(a=>{const t=Math.min(left,a.amount-(a.rec||0));a.rec=(a.rec||0)+t;left-=t})}S.refunds.push({id:S.rid++,member:q.member,card:q.card,amount:k.refund,kept:k.ret,paid:false});log('Admin',`Arrêt de la ${CN(q.card).name} approuvé pour ${nm(MB())} : retenue ${fmt(k.ret)}, remboursement ${fmt(k.refund)}.`)}}
   S.gm=o;return true}
 
 document.addEventListener('click',e=>{
@@ -648,6 +658,7 @@ document.addEventListener('click',e=>{
  if(act==='mopen'){S.mdet=id;S.mall=false}
  if(act==='mback'){S.mdet=null;S.mall=false}
  if(act==='meye')S.hide=!S.hide;
+ if(act==='mtab'){S.tab=id;S.mall=false}
  if(act==='mall')S.mall=!S.mall;
  if(act==='cback')S.cdet=null;
  if(act==='copylink'){const m=S.members.find(x=>x.id===id),l=linkOf(m);log('Admin',`Lien de suivi copié pour ${nm(m)}.`);const done=()=>{setMsg(`Lien copié pour ${nm(m)}. N’oubliez pas de lui envoyer son identifiant ${m.idn}.`,true);render()},bad=()=>{setMsg(`Copiez ce lien et envoyez-le à ${nm(m)} avec son identifiant ${m.idn} : ${l}`);render()};try{navigator.clipboard.writeText(l).then(done,bad)}catch(e){bad()}}
