@@ -312,6 +312,13 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .m-three{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .m-three b{font-size:.9rem;overflow-wrap:anywhere}
 .m-three small{font-size:.74rem}
+.m-ov{position:fixed;inset:0;z-index:60;display:grid;align-items:end;justify-items:center}
+.m-bd{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.m-sheet{position:relative;width:100%;max-width:560px;background:var(--card);border-radius:24px 24px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;max-height:88vh;overflow:auto;box-shadow:0 -12px 40px rgba(0,0,0,.25)}
+.m-sh{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.m-sh h2{margin:0}
+.m-sheet input{width:100%;height:46px}
+.rs.m-sel{background:var(--card);box-shadow:inset 0 0 0 2px var(--ink)}
 </style>
 </head>
 <body>
@@ -444,7 +451,7 @@ const norm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u03
 const found=q=>{const toks=norm(q).split(/\s+/).filter(Boolean);return toks.length?S.members.filter(m=>{const hay=norm([m.prenom,m.nom,m.quartier,m.idn].join(' ')),ph=m.tel.replace(/\D/g,'');return toks.every(t=>hay.includes(t)||(/^\d+$/.test(t)&&ph.includes(t)))}):[]};
 const resHtml=q=>{if(!q.trim())return{n:'',h:''};const r=found(q);return{n:r.length?`${r.length} résultat${r.length>1?'s':''} sur ${S.members.length} membres`:'Aucun résultat',h:r.length?r.map(m=>`<button type="button" class="rs" data-act="pickm" data-id="${m.id}"><span class="avatar sm" style="background:${AV[m.id.charCodeAt(m.id.length-1)%AV.length]}" aria-hidden="true">${esc((m.prenom[0]+m.nom[0]).toUpperCase())}</span><span><b>${esc(nm(m))}</b><small>${esc(m.quartier)}, ${esc(m.tel)}</small></span></button>`).join(''):`<p class="empty">Aucun membre ne correspond à « ${esc(q.trim())} ». Vérifiez l’orthographe ou cherchez par téléphone ou quartier.</p>`}};
 function updRes(){const r=resHtml(S.q||''),c=document.querySelector('#rc'),l=document.querySelector('#res');if(c)c.textContent=r.n;if(l)l.innerHTML=r.h}
-function profile(){const r=resHtml(S.q||'');return `<section class="panel"><div class="srow"><label>Rechercher un membre<input id="q" type="search" placeholder="Nom, tél., quartier" value="${esc(S.q||'')}" autocomplete="off"></label>${selM()}</div><p class="sub" id="rc" aria-live="polite" style="margin:6px 0 0">${r.n}</p><div id="res" class="res">${r.h}</div><div style="margin-top:12px">${info(MB())}</div></section>`}
+function profile(){return `<section class="panel">${info(MB())}</section>`}
 function dash(){const mh=msgHtml(),m0=MB(),col=AV[m0.id.charCodeAt(m0.id.length-1)%AV.length],ini=(m0.prenom[0]+m0.nom[0]).toUpperCase(),solo=!S.mgrOn,mine=solo?S.payments:S.payments.filter(p=>p.g===S.gg),all=mine.reduce((s,p)=>s+p.amount,0),cash=mine.filter(p=>p.mode==='Espèces').reduce((s,p)=>s+p.amount,0);
  return `${mh?`<div class="sticky">${mh}</div>`:''}
  <div class="bar2 top"><div class="avatar big" style="background:${col}" aria-hidden="true">${esc(ini)}</div><b class="bn">${esc(nm(MB()))}</b><div class="sel2">${solo?'':selG()}${selM()}</div><div class="st2"><div class="stat"><b>${fmt(all)}</b><span>total collecté</span></div><div class="stat"><b>${fmt(cash)}</b><span>espèces à remettre</span></div><div class="stat opt"><b>${fmt(all-cash)}</b><span>paiements électroniques</span></div></div></div>
@@ -474,15 +481,16 @@ function mHome(ro){const m=MB(),types=m.types.filter(t=>t==='Koti'||t==='Foyer')
  ${hs.length?`<div class="m-hs">${cs.map(({c,y})=>{const q=y.full?Math.round(y.paid/y.full*100):0;return `<button type="button" class="gcard" data-act="mopen" data-id="${c.id}" aria-label="Voir le détail de la ${c.name}"><div class="gh"><span class="gi ${c.id}">${mLab(c)}</span><b>${c.name}<small class="m-sm">Cycle ${y.k} sur ${y.mx}</small></b><span class="chev">›</span></div><div class="gin"><div class="ga"><b>${mAmt(y.paid)}</b><span>${S.hide?'••••':fmt(y.full)}</span></div><div class="prog ${c.id}" role="progressbar" aria-label="${c.name} versée sur le cycle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${q}"><i style="width:${Math.min(100,q)}%"></i></div><div class="gf"><span>${y.left} tours restants</span><b>${q} %</b></div></div></button>`}).join('')}</div>`:'<div class="m-empty"><b>Aucune carte</b><p>Les cartes de ce membre s’afficheront ici dès que l’administrateur les aura choisies.</p></div>'}
  <div class="sech"><h2>Paiements récents</h2>${pays.length>5?`<button type="button" class="lnk" data-act="mall">${S.mall?'Voir moins':'Voir tout'}</button>`:''}</div>
  <div class="m-blk">${mPays(pays,S.mall?999:5)}</div>`}
-function mDetail(id){const c=CN(id),y=cyc(id),R=y.R,s0=y.s+31*(y.k-1),late=R.filter(r=>r.d<=y.t&&r.due>r.paid),fut=R.filter(r=>r.d>y.t&&r.d<=30&&r.due>r.paid),d31=y.t<31&&R[30].due>R[30].paid?R[30]:null,stp=MB().cards[id].stop,pays=S.payments.filter(p=>p.m===S.gm&&p.card===id).slice().reverse(),pad=d=>String(d).padStart(2,'0');
+function mDetail(id,ro){const c=CN(id),y=cyc(id),R=y.R,s0=y.s+31*(y.k-1),late=R.filter(r=>r.d<=y.t&&r.due>r.paid),fut=R.filter(r=>r.d>y.t&&r.d<=30&&r.due>r.paid),d31=y.t<31&&R[30].due>R[30].paid?R[30]:null,stp=MB().cards[id].stop,pays=S.payments.filter(p=>p.m===S.gm&&p.card===id).slice().reverse(),pad=d=>String(d).padStart(2,'0');
  const tour=(r,cls,tag,amt)=>`<div class="m-tour ${cls}"><div class="m-th"><span class="m-n">${r.d}</span><span class="m-tag">${tag}</span></div><small>Tour ${pad(r.d)}, ${dateOf(s0+r.d-1)}</small><b>${mAmt(amt)}</b></div>`;
- return `<div class="dtop"><button type="button" class="ib" data-act="mback" aria-label="Retour à l’accueil">‹</button><b>${c.name}</b><span></span></div>
+ return `<div class="dtop"><button type="button" class="ib" data-act="mback" aria-label="Retour à l’accueil">‹</button><b>${c.type} - ${c.name}</b><span></span></div>
+ ${ro?'':collSec(id)}
  <div class="m-hero"><span class="m-l">Montant versé ${mEye()}</span><b class="m-big">${mAmt(y.paid)}</b><div class="m-two"><div><small>Tours restants</small><b>${y.left}</b></div><div><small>Nombre du cycle</small><b>${y.k} sur ${y.mx}</b></div></div></div>
  ${stp!==null?`<p class="m-sub">Carte arrêtée après le jour ${stp}.</p>`:''}
  ${c.type==='Koti'&&MB().cycles?`<p class="m-sub">Bénéfice de l’organisateur : ${mAmt(c.v*MB().cycles)} (${fmt(c.v)} × ${MB().cycles} cycle${MB().cycles>1?'s':''}), retenu si la carte est arrêtée avant la fin.</p>`:''}
  <div class="m-mini"><div class="m-blk"><small>Fréquence</small><b>Quotidien</b></div><div class="m-blk"><small>Contribution</small><b>${mAmt(dueNow(id))}</b></div></div>
- <div class="sech"><h2>Tours en attente</h2></div><p class="m-sub">Contributions des jours échus et du jour</p>
- <div class="m-hs">${late.length?late.map(r=>tour(r,'late',r.d===y.t?'à payer aujourd’hui':'en retard',r.due-r.paid)).join(''):'<div class="m-empty"><b>Aucun tour en attente</b><p>Tous les tours échus sont payés.</p></div>'}</div>
+ ${ro?`<div class="sech"><h2>Tours en attente</h2></div><p class="m-sub">Contributions des jours échus et du jour</p>
+ <div class="m-hs">${late.length?late.map(r=>tour(r,'late',r.d===y.t?'à payer aujourd’hui':'en retard',r.due-r.paid)).join(''):'<div class="m-empty"><b>Aucun tour en attente</b><p>Tous les tours échus sont payés.</p></div>'}</div>`:`${late.length?`<div class="m-hs">${late.map(r=>tour(r,'late',r.d===y.t?'à payer aujourd’hui':'en retard',r.due-r.paid)).join('')}</div>`:''}`}
  <div class="sech"><h2>Tours à venir</h2></div><p class="m-sub">Vous pouvez payer à l’avance les tours à venir</p>
  <div class="m-hs">${fut.map((r,i)=>tour(r,'',i===0?'Payable d’avance':'à venir',r.due)).join('')}${d31?tour(d31,'sun',c.type==='Koti'?'Jour 31, bénéfice de l’organisateur':'Jour 31',d31.due):''}${fut.length||d31?'':'<div class="m-empty"><b>Aucun tour à venir</b><p>Ce cycle est arrivé à son terme.</p></div>'}</div>
  <div class="sech"><h2>Historique</h2>${pays.length>5?`<button type="button" class="lnk" data-act="mall">${S.mall?'Voir moins':'Voir tout'}</button>`:''}</div>
@@ -492,7 +500,7 @@ function mDetail(id){const c=CN(id),y=cyc(id),R=y.R,s0=y.s+31*(y.k-1),late=R.fil
  <p class="legend"><span>✓ payé</span><span>! en retard</span><span>● à payer aujourd’hui</span><span>– pas d’échéance (carte suspendue ou arrêtée)</span></p>`}
 function viewMembre(ro){if(!S.members.length)return '<section class="panel"><p class="empty">Aucun membre pour l’instant.</p></section>';
  const det=S.mdet&&held().some(c=>c.id===S.mdet);
- return `${msgHtml()}${ro?'':profile()}${det?mDetail(S.mdet):mHome(ro)}`}
+ return `${msgHtml()}${ro||det?'':profile()}${det?mDetail(S.mdet,ro):mHome(ro)}${ro||det?'':collSec()}`}
 
 function cardList(d){const m=MB(),types=TYPES.filter(t=>m.types.includes(t)),item=c=>`<label class="chk ${d[c.id]?'sel':''}"><input type="checkbox" data-act="tog" data-id="${c.id}" ${d[c.id]?'checked':''}><span><b>${c.name}</b><small>${fmt(c.v)} par jour</small></span></label>`;return types.map(t=>(types.length>1?`<div class="gt">${t}</div>`:'')+CARDS.filter(c=>c.type===t).map(item).join('')).join('')}
 function chooser(){const d=MB().draft,dd=CARDS.reduce((s,c)=>s+c.v*d[c.id],0),pending=S.requests.filter(r=>r.status==='soumise'&&r.type==='changement'&&r.member===S.gm),same=CARDS.every(c=>d[c.id]===cardAt(c.id,TODAY)),sel=CARDS.filter(c=>d[c.id]);
@@ -533,17 +541,22 @@ function stopPanel(){if(!S.members.length)return '';const o=S.gm,mem=S.members.f
   <div style="margin-top:14px">${S.cfs?`<div class="cf"><b>Arrêter la ${cur.name} de ${esc(nm(mem))} ? Un remboursement de ${fmt(k.refund)} sera à payer. Cette action ne peut pas être annulée.</b><button class="btn warn" data-act="dostop" data-id="${cur.id}">Confirmer l’arrêt</button><button class="btn" data-act="keepstop">Garder la carte</button></div>`:'<button class="btn warn" data-act="askstop">Arrêter la carte</button>'}</div>`:`<p class="empty">Ce membre n’a aucune carte active.</p>`}</section>`}
 function viewGest(){return dash()+tools()}
 function regSec(){return `<section class="panel"><h2>Inscrire un membre</h2><form id="regf">${pfields('regf')}${typesField('regf',['Koti'])}<button class="btn main" type="submit">Inscrire le membre</button></form></section>`}
-function tools(){if(!S.members.length)return regSec();
- const mine=S.payments.filter(p=>p.g===S.gg),all=mine.reduce((s,p)=>s+p.amount,0),cash=mine.filter(p=>p.mode==='Espèces').reduce((s,p)=>s+p.amount,0),act=held().filter(c=>MB().cards[c.id].stop===null);
- return ` ${regSec()}
- ${chooser()}
- <section class="panel coll"><h2>Enregistrer une collecte</h2><p class="sub">Un paiement Mobile Money saisi ici reste une déclaration de collecte. L’opérateur ne le confirme pas. Un tour correspond à un jour de cotisation de la carte. Le montant à collecter se calcule d’après la carte et le nombre de tours.</p>
+const collRes=()=>{const q=(S.cq||'').trim();if(!S.members.length)return{h:'<p class="empty">Aucun membre. Inscrivez-en un d’abord.</p>',n:''};if(!q)return{h:'',n:''};const r=found(q);return{n:r.length?r.length+' résultat'+(r.length>1?'s':'')+' sur '+S.members.length+' membres':'Aucun résultat',h:r.length?r.map(m=>`<button type="button" class="rs ${S.cm===m.id?'m-sel':''}" data-act="collpick" data-id="${m.id}" aria-pressed="${S.cm===m.id}"><span class="avatar sm" style="background:${AV[m.id.charCodeAt(m.id.length-1)%AV.length]}" aria-hidden="true">${esc((m.prenom[0]+m.nom[0]).toUpperCase())}</span><span><b>${esc(nm(m))}</b><small>${esc(m.quartier)}, ${esc(m.tel)}</small></span></button>`).join(''):`<p class="empty">Aucun membre ne correspond à « ${esc(q)} ». Vérifiez l’orthographe ou cherchez par téléphone, quartier ou identifiant.</p>`}};
+const collSheet=()=>{const r=collRes();return `<div id="csheet" class="m-ov"><div class="m-bd" data-act="collclose"></div><div class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="ctt"><div class="m-sh"><h2 id="ctt">Collecter</h2><button type="button" class="ib" data-act="collclose" aria-label="Fermer">×</button></div><label>Rechercher un membre<input id="cq" type="search" placeholder="Nom, tél., quartier, identifiant" value="${esc(S.cq||'')}" autocomplete="off"></label><p class="sub" id="cc" aria-live="polite" style="margin:0">${r.n}</p><div id="cres" class="res">${r.h}</div><button type="button" class="btn main" id="cgo" data-act="collgo" ${S.cm?'':'disabled'}>Valider</button><p class="sub" id="chint" style="margin:0">${S.cm?'':'Choisissez un membre dans la liste pour continuer.'}</p></div></div>`};
+function updC(){const r=collRes(),a=document.querySelector('#cc'),b=document.querySelector('#cres'),c=document.querySelector('#cgo'),d=document.querySelector('#chint');if(a)a.textContent=r.n;if(b)b.innerHTML=r.h;if(c)c.disabled=!S.cm;if(d)d.textContent=S.cm?'':'Choisissez un membre dans la liste pour continuer.'}
+function collGo(){if(!S.cm||!S.members.some(m=>m.id===S.cm))return false;S.gm=S.cm;S.role='membre';S.mdet=null;S.q='';S.csearch=false;S.err=null;S.cf=null;S.msg=null;return true}
+function collSec(only){const act=held().filter(c=>MB().cards[c.id].stop===null&&(!only||c.id===only));return `<section class="panel coll"><h2>Enregistrer une collecte</h2>
   <form id="payf"><label>Carte${cpick('payf',act)}</label>
   <label>Nombre de tours<input name="tours" type="number" min="1" step="1" inputmode="numeric" value="1">${fe('payf','tours')}</label>
   <p class="total" id="tot" aria-live="polite">${(()=>{const e=S.err&&S.err.form==='payf'?S.err.vals:null,id=e?e.card:(act.find(c=>c.id===S.pc)||act[0]||{}).id;return totHtml(id,e?parseInt(e.tours,10):1)})()}</p>
   <label>Mode<select name="mode">${MODES.map(m=>`<option>${m}</option>`).join('')}</select></label>
   <label>Mobile Money ID<input name="ref" maxlength="40" placeholder="5 derniers chiffres" inputmode="numeric" autocomplete="off">${fe('payf','ref')}</label>
-  <button class="btn main" type="submit">Enregistrer et éditer le reçu</button></form></section>
+  <button class="btn main" type="submit">Enregistrer et éditer le reçu</button></form></section>`}
+function tools(){if(!S.members.length)return regSec();
+ const mine=S.payments.filter(p=>p.g===S.gg),all=mine.reduce((s,p)=>s+p.amount,0),cash=mine.filter(p=>p.mode==='Espèces').reduce((s,p)=>s+p.amount,0),act=held().filter(c=>MB().cards[c.id].stop===null);
+ return ` ${regSec()}
+ ${chooser()}
+ ${collSec()}
  <section class="panel"><h2>${S.mgrOn?'Demande d’avance':'Accorder une avance'}</h2><p class="sub">${S.mgrOn?'Le membre fait sa demande au gestionnaire, qui la soumet. L’administrateur la valide.':'Vous accordez l’avance directement.'} Elle porte sur le total versé sur toutes les cartes du membre. Disponible : ${MB().types.map(t=>`<b>${t} ${fmt(Math.max(0,netPool(t)-advMember(t)))}</b>`).join(', ')}.</p>
   <form id="advf"><label>Type<select name="t">${MB().types.map(t=>`<option>${t}</option>`).join('')}</select>${fe('advf','t')}</label><label>Montant (FCFA)<input name="a" type="number" min="1" step="1" inputmode="numeric">${fe('advf','a')}</label><button class="btn main" type="submit">${S.mgrOn?'Soumettre la demande':'Accorder l’avance'}</button></form>
   ${S.requests.filter(r=>r.type==='avance').map(r=>`<div class="row" style="margin-top:8px"><span><b>${esc(mname(r.member))}</b><br><small class="sub">${esc(r.detail)}</small></span><b>${r.status}</b></div>`).join('')}</section>
@@ -562,18 +575,18 @@ function detail(id){const c=CN(id),a=cardAgg(id),pct=a.full?Math.round(a.paid/a.
  <section class="panel"><h2>Cotisations payées par jour</h2><p class="sub">Six derniers jours. Moyenne par jour <b>${fmt(avg)}</b></p><div class="chart" role="img" aria-label="${ds.map(x=>dateOf(x.d)+' : '+fmt(x.v)).join(', ')}">${ds.map(x=>`<div class="cb"><div class="bw"><i style="height:${Math.round(x.v/mx*100)}%"></i></div><span>${dateOf(x.d)}</span></div>`).join('')}</div></section>
  <section class="panel"><h2>Paiements</h2>${pays.length?pays.map(p=>`<div class="tx"><span class="ti">${p.amount<0?'↗':'↙'}</span><div><b>${esc(mname(p.m))}</b><small>${esc(p.mode)}, ${esc(p.rec)}</small></div><span class="ta ${p.amount<0?'neg':''}">${p.amount<0?'':'+'}${fmt(p.amount)}</span></div>`).join(''):'<p class="empty">Aucun paiement sur cette carte.</p>'}</section>
  ${S.mgrOn?'':`<button class="fab" data-act="gocoll" data-id="${id}">+ Enregistrer une collecte</button>`}`}
-const aseg=()=>S.mgrOn?'':`<div class="seg" role="group" aria-label="Section">${[['tableau','Tableau de bord'],['collecte','Opérations']].map(([k,l])=>`<button type="button" class="btn ${(S.aview||'tableau')===k?'main':''}" data-act="aview" data-id="${k}" aria-pressed="${(S.aview||'tableau')===k}">${l}</button>`).join('')}</div>`;
+const aseg=()=>S.mgrOn||(S.aview||'tableau')==='tableau'?'':`<div class="dtop"><button type="button" class="ib" data-act="aview" data-id="tableau" aria-label="Retour au tableau de bord">‹</button><b>Opérations</b><span></span></div>`;
 function viewAdmin(){const T=tabT(['Koti','Foyer']);if(S.cdet)return detail(S.cdet);if(!S.mgrOn&&S.aview==='collecte')return S.members.length?aseg()+dash()+tools():aseg()+msgHtml()+regSec();
  const att=sumAll(()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.due,TODAY),0)),p=S.payments.filter(x=>(CN(x.card)||{}).type===T).reduce((s,x)=>s+x.amount,0);
  const bDue=sumAll(()=>held(T).reduce((s,c)=>s+rows(c.id)[30].due,0)),bPaid=sumAll(()=>held(T).reduce((s,c)=>s+rows(c.id)[30].paid,0)),bTot=sumAll(()=>benefOf(T)),resteT=sumAll(()=>netPool(T)-advOf(T));
  const paidDue=sumAll(()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.paid,TODAY),0));
  const lateOf=()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.due-r.paid,TODAY-1),0),lateBefore=sumAll(lateOf),lateCount=each(lateOf).filter(x=>x>0).length,reste=Math.max(0,att-paidDue),pct=att?Math.round(paidDue/att*100):0,refTot=S.refunds.filter(r=>(CN(r.card)||{}).type===T).reduce((s,r)=>s+r.amount,0);
  const pend=S.requests.filter(r=>r.status==='soumise');
- const acts=S.mgrOn?[{h:'#membres',l:'Membres',i:IC.users},{h:'#avances',l:'Avances',i:IC.coin},{h:'#parametres',l:'Réglages',i:IC.gear}]:[{l:'Collecter',i:IC.plus},{l:'Inscrire',i:IC.userplus},{h:'#avances',l:'Avances',i:IC.coin}];
+ const acts=S.mgrOn?[{h:'#membres',l:'Membres',i:IC.users},{h:'#avances',l:'Avances',i:IC.coin},{h:'#parametres',l:'Réglages',i:IC.gear}]:[{l:'Collecter',i:IC.plus,a:'collopen'},{l:'Inscrire',i:IC.userplus},{h:'#avances',l:'Avances',i:IC.coin}];
  const lbl=r=>r.type==='arrêt'?'Arrêt de la '+CN(r.card).name:r.type==='avance'?'Avance':'Changement de cartes';
  return `${aseg()}${msgHtml()}
  <div class="m-hero"><span class="m-l">Total encaissé ${mEye()}</span><b class="m-big">${mAmt(p)}</b><div class="m-two m-three"><div><small>Total Avance</small><b>${mAmt(advTotal(T))}</b></div><div><small>Total Bénéfice</small><b>${mAmt(bTot)}</b></div><div><small>Total Reste</small><b>${mAmt(resteT)}</b></div></div>
- <div class="acts2" style="grid-template-columns:repeat(${acts.length},1fr)">${acts.map(x=>x.h?`<a class="hact" href="${x.h}"><span class="c">${I(x.i)}</span>${x.l}</a>`:`<button type="button" class="hact" data-act="aview" data-id="collecte"><span class="c">${I(x.i)}</span>${x.l}</button>`).join('')}</div></div>
+ <div class="acts2" style="grid-template-columns:repeat(${acts.length},1fr)">${acts.map(x=>x.h?`<a class="hact" href="${x.h}"><span class="c">${I(x.i)}</span>${x.l}</a>`:`<button type="button" class="hact" data-act="${x.a||'aview'}" data-id="collecte"><span class="c">${I(x.i)}</span>${x.l}</button>`).join('')}</div></div>
  ${mTabs(['Koti','Foyer'],T)}
  <div class="sech"><h2>Vos cartes</h2><a href="#membres">Voir les membres ›</a></div>
  ${att?`<div class="glist">${CARDS.filter(c=>c.type===T).map(c=>{const g=cardAgg(c.id);if(!g.n)return '';const q=g.full?Math.round(g.paid/g.full*100):0;return `<button type="button" class="gcard" data-act="cdet" data-id="${c.id}" aria-label="Voir le détail de la ${c.name}"><div class="gh"><span class="gi ${c.id}">${c.type}</span><b>${c.name}</b><span class="chev">›</span></div><div class="gin"><div class="ga"><b>${fmt(g.paid)}</b><span>${fmt(g.full)}</span></div><div class="prog ${c.id}" role="progressbar" aria-label="${c.name} encaissée sur le cycle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${q}"><i style="width:${Math.min(100,q)}%"></i></div><div class="gf"><span>${g.rest} jours restants</span><b>${q} %</b></div></div></button>`}).join('')}</div>`:'<p class="empty">Aucune cotisation attendue pour l’instant. Inscrivez un membre et choisissez ses cartes.</p>'}
@@ -601,6 +614,7 @@ function render(){
  if(S.role==='gestionnaire'&&!S.mgrOn)S.role='admin';
  document.querySelectorAll('nav button').forEach(b=>{b.hidden=b.dataset.role==='gestionnaire'&&!S.mgrOn;b.setAttribute('aria-pressed',b.dataset.role===S.role)});
  $('#app').innerHTML=S.suivi?(S.suivi==='ask'?viewSuiviForm():viewMembre(true)):S.auth!=='ok'?viewAuth():S.role==='membre'?viewMembre():S.role==='gestionnaire'?viewGest():viewAdmin();
+ const old=document.querySelector('#csheet');if(old&&old.remove)old.remove();if(S.csearch&&S.role==='admin'&&!S.suivi&&S.auth==='ok'&&document.body&&document.body.insertAdjacentHTML){document.body.insertAdjacentHTML('beforeend',collSheet());if(S.cfocus){S.cfocus=false;const cq=document.querySelector('#cq');if(cq&&cq.focus)cq.focus()}}
  const f=$('#payf');if(f)f.onsubmit=pay;const g=$('#advf');if(g)g.onsubmit=giveAdv;const h=$('#regf');if(h)h.onsubmit=inscrire;
  const m=$('#gm');if(m)m.onchange=ev=>{S.gm=ev.target.value;S.err=null;S.cf=null;render()};const gg=$('#gg');if(gg)gg.onchange=ev=>{S.gg=ev.target.value;S.err=null;S.cf=null;render()};const gf=$('#gestf');if(gf)gf.onsubmit=creerG;const sf=$('#suivif');if(sf)sf.onsubmit=suivi;const lf=$('#loginf');if(lf)lf.onsubmit=login;
  const sm=$('#sm');if(sm)sm.onchange=ev=>{S.sm=ev.target.value;S.sc=null;S.cfs=false;render()};const sc=$('#sc');if(sc)sc.onchange=ev=>{S.sc=ev.target.value;S.cfs=false;render()};
@@ -648,7 +662,7 @@ function decide(q,okk){const o=S.gm;S.gm=q.member;
   S.gm=o;return true}
 
 document.addEventListener('click',e=>{
- const r=e.target.closest('[data-role]');if(r){S.role=r.dataset.role;S.cdet=null;S.mdet=null;S.msg=null;S.err=null;S.cf=null;return render()}
+ const r=e.target.closest('[data-role]');if(r){S.role=r.dataset.role;S.cdet=null;S.mdet=null;S.csearch=false;S.msg=null;S.err=null;S.cf=null;return render()}
  const el=e.target.closest('[data-act]');if(!el)return;const act=el.dataset.act,id=el.dataset.id;
  if(act==='pickpc'){S.pc=id;document.querySelectorAll('.cpick').forEach(cp=>{cp.querySelector('input[name=card]').value=id;cp.querySelectorAll('button').forEach(b=>{const on=b.dataset.id===id;b.classList.toggle('main',on);b.setAttribute('aria-pressed',on)})});return}
  if(act==='tog'){const c=e.target;MB().draft[id]=(c&&c.type==='checkbox')?(c.checked?1:0):(MB().draft[id]?0:1)}
@@ -662,6 +676,10 @@ document.addEventListener('click',e=>{
  if(act==='mopen'){S.mdet=id;S.mall=false}
  if(act==='mback'){S.mdet=null;S.mall=false}
  if(act==='meye')S.hide=!S.hide;
+ if(act==='collopen'){S.csearch=true;S.cq='';S.cm=null;S.cfocus=true}
+ if(act==='collclose')S.csearch=false;
+ if(act==='collpick')S.cm=id;
+ if(act==='collgo'&&!collGo())return;
  if(act==='mtab'){S.tab=id;S.mall=false}
  if(act==='mall')S.mall=!S.mall;
  if(act==='cback')S.cdet=null;
@@ -681,9 +699,10 @@ document.addEventListener('click',e=>{
  if(act==='ok'||act==='no'){const q=S.requests.find(x=>x.id==id);if(decide(q,act==='ok'))setMsg('Décision enregistrée.',true)}
  if(act==='mgr'){S.mgrOn=!S.mgrOn;S.gg=S.mgrOn&&S.managers[0]?S.managers[0].id:'admin';log('Admin',S.mgrOn?'Gestionnaires activés.':'Gestionnaires désactivés.');setMsg(S.mgrOn?'Gestionnaires activés. Créez-en un ou choisissez-en un dans la barre.':'Gestionnaires désactivés. Vous gérez seul la plateforme.',true)}
  if(act==='payref'){S.refunds.find(x=>x.id==id).paid=true;dbw(()=>upd('refunds',{paid:true},'id',id));log('Admin','Remboursement payé.')}
- render();if(typeof window!=='undefined'&&window.scrollTo&&['cdet','cback','gocoll','aview','mopen','mback'].includes(act))window.scrollTo(0,0)});
+ render();if(typeof window!=='undefined'&&window.scrollTo&&['cdet','cback','gocoll','aview','mopen','mback','collgo'].includes(act))window.scrollTo(0,0)});
 function updTot(){const tot=document.querySelector('#tot'),f=document.querySelector('#payf');if(!tot||!f||!f.elements)return;tot.innerHTML=totHtml(f.elements.card.value,parseInt(f.elements.tours.value,10))}
-document.addEventListener('input',e=>{const t=e.target;if(t&&t.name==='tours')updTot();if(t&&t.id==='q'){S.q=t.value;updRes()}});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.name==='tours')updTot();if(t&&t.id==='q'){S.q=t.value;updRes()}if(t&&t.id==='cq'){S.cq=t.value;S.cm=null;updC()}});
+document.addEventListener('keydown',e=>{if(!S.csearch)return;if(e.key==='Escape'){S.csearch=false;render();return}if(e.key==='Enter'&&e.target&&e.target.id==='cq'){e.preventDefault();const r=found(S.cq||'');if(!S.cm&&r.length===1)S.cm=r[0].id;if(collGo())render()}});
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.name==='card'){S.pc=t.value;document.querySelectorAll('select[name=card]').forEach(x=>{x.value=S.pc});updTot()}});
 document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='dd')S.dd=e.target.open},true);
 if(typeof window!=='undefined'&&window.addEventListener)window.addEventListener('hashchange',()=>{const p=S.suivi;route();if(p!==S.suivi)boot()});
