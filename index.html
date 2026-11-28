@@ -323,11 +323,21 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .m-cals::-webkit-scrollbar{display:none}
 .m-calp{flex:0 0 100%;min-width:0;scroll-snap-align:start;display:grid;gap:10px;align-content:start}
 .m-add{border:0;border-radius:999px;background:var(--ink);color:var(--card);font:700 .85rem inherit;font-family:inherit;padding:8px 14px;min-height:36px;cursor:pointer}
+.m-sheet .chk input{width:24px;height:24px;min-width:24px}
+.m-sheet .tb .chk{padding:12px 10px}
+.hsearch{flex:1 1 50%;position:relative;min-width:0}
+.hsearch input{width:100%;height:46px}
+.hres{position:absolute;right:0;width:min(90vw,420px);top:calc(100% + 6px);z-index:25;display:grid;gap:6px;background:var(--card);border-radius:16px;padding:8px;box-shadow:var(--shadow);max-height:50vh;overflow:auto}
+.hres:empty{display:none}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+header h1{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1:not([hidden]){flex:1 1 45%}
 </style>
 </head>
 <body>
 <header>
   <h1 id="hello">Bonjour</h1>
+  <div id="hsearch" class="hsearch" hidden></div>
   <a class="ib" id="gear" href="#parametres" aria-label="Paramètres" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></a>
   <nav aria-label="Profil">
     <button data-role="admin" aria-label="Administrateur"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z"/></svg><span>Administrateur</span></button>
@@ -498,10 +508,10 @@ function mDetail(id,ro){const c=CN(id),y=cyc(id),R=y.R,s0=y.s+31*(y.k-1),late=R.
  ${stp!==null?`<p class="m-sub">Carte arrêtée après le jour ${stp}.</p>`:''}
  ${c.type==='Koti'&&cyOf(MB(),id)?`<p class="m-sub">Bénéfice de l’organisateur : ${mAmt(c.v*cyOf(MB(),id))} (${fmt(c.v)} × ${cyOf(MB(),id)} cycle${cyOf(MB(),id)>1?'s':''}), retenu si la carte est arrêtée avant la fin.</p>`:''}
  <div class="m-mini"><div class="m-blk"><small>Fréquence</small><b>Quotidien</b></div><div class="m-blk"><small>Contribution</small><b>${mAmt(dueNow(id))}</b></div></div>
- <div class="sech"><h2>Historique</h2>${pays.length>5?`<button type="button" class="lnk" data-act="mall">${S.mall?'Voir moins':'Voir tout'}</button>`:''}</div>
- <div class="m-blk">${mPays(pays,S.mall?999:5)}</div>
  <div class="m-cals" id="mcals" role="group" aria-label="Calendriers des cycles, du plus ancien au plus récent">${cycAll(id).map(z=>`<section class="m-calp" ${z.j===y.k?`data-cur="1" data-card="${id}" data-k="${y.k}"`:''} aria-label="Calendrier du ${ORD(z.j)} cycle"><div class="sech"><h2>Calendrier du ${ORD(z.j)} cycle</h2></div><p class="m-sub">Cycle ${z.j} sur ${y.mx}</p>${calendar(z.R,z.s0)}</section>`).join('')}</div>
- <p class="legend"><span>✓ payé</span><span>! en retard</span><span>● à payer aujourd’hui</span><span>– pas d’échéance (carte suspendue ou arrêtée)</span></p>`}
+ <p class="legend"><span>✓ payé</span><span>! en retard</span><span>● à payer aujourd’hui</span><span>– pas d’échéance (carte suspendue ou arrêtée)</span></p>
+ <div class="sech"><h2>Historique</h2>${pays.length>5?`<button type="button" class="lnk" data-act="mall">${S.mall?'Voir moins':'Voir tout'}</button>`:''}</div>
+ <div class="m-blk">${mPays(pays,S.mall?999:5)}</div>`}
 function viewMembre(ro){if(!S.members.length)return '<section class="panel"><p class="empty">Aucun membre pour l’instant.</p></section>';
  const det=S.mdet&&held().some(c=>c.id===S.mdet);
  return `${msgHtml()}${ro||det?'':profile()}${det?mDetail(S.mdet,ro):mHome(ro)}`}
@@ -546,9 +556,9 @@ function stopPanel(){if(!S.members.length)return '';const o=S.gm,mem=S.members.f
 function viewGest(){return dash()+tools()}
 function regSec(){return `<section class="panel"><h2>Inscrire un membre</h2><form id="regf">${pfields('regf')}${typesField('regf',['Koti'])}<button class="btn main" type="submit">Inscrire le membre</button></form></section>`}
 const collRes=()=>{const q=(S.cq||'').trim();if(!S.members.length)return{h:'<p class="empty">Aucun membre. Inscrivez-en un d’abord.</p>',n:''};if(!q)return{h:'',n:''};const r=found(q);return{n:r.length?r.length+' résultat'+(r.length>1?'s':'')+' sur '+S.members.length+' membres':'Aucun résultat',h:r.length?r.map(m=>`<button type="button" class="rs ${S.cm===m.id?'m-sel':''}" data-act="collpick" data-id="${m.id}" aria-pressed="${S.cm===m.id}"><span class="avatar sm" style="background:${AV[m.id.charCodeAt(m.id.length-1)%AV.length]}" aria-hidden="true">${esc((m.prenom[0]+m.nom[0]).toUpperCase())}</span><span><b>${esc(nm(m))}</b><small>${esc(m.quartier)}, ${esc(m.tel)}</small></span></button>`).join(''):`<p class="empty">Aucun membre ne correspond à « ${esc(q)} ». Vérifiez l’orthographe ou cherchez par téléphone, quartier ou identifiant.</p>`}};
-const collSheet=()=>{const r=collRes();return `<div id="csheet" class="m-ov"><div class="m-bd" data-act="collclose"></div><div class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="ctt"><div class="m-sh"><h2 id="ctt">Collecter</h2><button type="button" class="ib" data-act="collclose" aria-label="Fermer">×</button></div><label>Rechercher un membre<input id="cq" type="search" placeholder="Nom, tél., quartier, identifiant" value="${esc(S.cq||'')}" autocomplete="off"></label><p class="sub" id="cc" aria-live="polite" style="margin:0">${r.n}</p><div id="cres" class="res">${r.h}</div><button type="button" class="btn main" id="cgo" data-act="collgo" ${S.cm?'':'disabled'}>Valider</button><p class="sub" id="chint" style="margin:0">${S.cm?'':'Choisissez un membre dans la liste pour continuer.'}</p></div></div>`};
+const collSheet=()=>{const r=collRes();return `<div id="csheet" class="m-ov"><div class="m-bd" data-act="collclose"></div><div class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="ctt"><div class="m-sh"><h2 id="ctt">${S.cmode==='adv'?'Avance':'Collecter'}</h2><button type="button" class="ib" data-act="collclose" aria-label="Fermer">×</button></div><label>Rechercher un membre<input id="cq" type="search" placeholder="Nom, tél., quartier, identifiant" value="${esc(S.cq||'')}" autocomplete="off"></label><p class="sub" id="cc" aria-live="polite" style="margin:0">${r.n}</p><div id="cres" class="res">${r.h}</div><button type="button" class="btn main" id="cgo" data-act="collgo" ${S.cm?'':'disabled'}>Valider</button><p class="sub" id="chint" style="margin:0">${S.cm?'':'Choisissez un membre dans la liste pour continuer.'}</p></div></div>`};
 function updC(){const r=collRes(),a=document.querySelector('#cc'),b=document.querySelector('#cres'),c=document.querySelector('#cgo'),d=document.querySelector('#chint');if(a)a.textContent=r.n;if(b)b.innerHTML=r.h;if(c)c.disabled=!S.cm;if(d)d.textContent=S.cm?'':'Choisissez un membre dans la liste pour continuer.'}
-function collGo(){if(!S.cm||!S.members.some(m=>m.id===S.cm))return false;S.gm=S.cm;S.role='membre';S.mdet=null;S.q='';S.csearch=false;S.err=null;S.cf=null;S.msg=null;return true}
+function collGo(){if(!S.cm||!S.members.some(m=>m.id===S.cm))return false;S.gm=S.cm;S.q='';S.csearch=false;S.err=null;S.cf=null;S.msg=null;if(S.cmode==='adv')S.av=true;else{S.role='membre';S.mdet=null}return true}
 const cardSheet=id=>{const c=CN(id);return `<div id="csheet2" class="m-ov"><div class="m-bd" data-act="cclose"></div><div class="m-sheet" role="dialog" aria-modal="true" aria-label="Enregistrer une collecte"><div class="m-sh"><b>${esc(c.type)} - ${esc(cardLabel(id))}</b><button type="button" class="ib" data-act="cclose" aria-label="Fermer">×</button></div>${collSec(id)}<button type="button" class="btn" data-act="cdetail" data-id="${id}">Voir le détail de la carte</button></div></div>`};
 const addSheet=()=>{const m=MB(),T=['Koti','Foyer'],at=T.includes(S.at)?S.at:(m.types[0]||'Koti'),av=CARDS.filter(c=>c.type===at);
  return `<div id="csheet3" class="m-ov"><div class="m-bd" data-act="aclose"></div><div class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="att"><div class="m-sh"><h2 id="att">Ajouter une carte</h2><button type="button" class="ib" data-act="aclose" aria-label="Fermer">×</button></div><form id="addf"><label>Type<select name="type" id="atype">${T.map(t=>`<option ${t===at?'selected':''}>${t}</option>`).join('')}</select></label><label>Carte<select name="acard" ${av.length?'':'disabled'}>${av.length?av.map(c=>`<option value="${c.id}">${c.name}</option>`).join(''):'<option>Aucune carte disponible</option>'}</select>${fe('addf','acard')}</label>${at==='Koti'?`<label>Durée de la tontine (en mois)<select name="cycles"><option value="">Choisir</option>${CYCLES.map(n=>`<option value="${n}">${n} mois</option>`).join('')}</select>${fe('addf','cycles')}</label>`:''}<button class="btn main" type="submit" ${av.length?'':'disabled'}>Ajouter la carte</button></form></div></div>`};
@@ -562,6 +572,10 @@ function ajoutCarte(e){e.preventDefault();const f=new FormData(e.target),at=Stri
  const addT=!m.types.includes(at);if(addT)m.types.push(at);
  dbw(async()=>{if(addT)await ins('member_types',{member_id:mid,type_id:TID[at],cycles:null});await ins('member_cards',{id:mcid,member_id:mid,card_id:cid,start_date:isoOfDay(TODAY),cycles:cy})});
  log('Admin',`Carte ajoutée : ${cardLabelM(m,key)} (${at}) pour ${nm(m)}, jour 1 aujourd’hui.`);S.ac=false;S.err=null;S.tab=at;setMsg(`${cardLabelM(m,key)} ajoutée pour ${nm(m)}. Elle commence au jour 1, aujourd’hui.`,true);render()}
+const insSheet=()=>`<div id="csheet4" class="m-ov"><div class="m-bd" data-act="insclose"></div><div class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="itt"><div class="m-sh"><h2 id="itt">Inscrire un membre</h2><button type="button" class="ib" data-act="insclose" aria-label="Fermer">×</button></div><form id="regf">${pfields('regf')}${typesField('regf',['Koti'])}<button class="btn main" type="submit">Inscrire le membre</button></form></div></div>`;
+const advSheet=()=>{const m=MB();return `<div id="csheet5" class="m-ov"><div class="m-bd" data-act="advclose"></div><div class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="avt"><div class="m-sh"><h2 id="avt">Accorder une avance</h2><button type="button" class="ib" data-act="advclose" aria-label="Fermer">×</button></div><p class="sub" style="margin:0"><b>${esc(nm(m))}</b>. Disponible : ${m.types.map(t=>`<b>${t} ${fmt(Math.max(0,netPool(t)-advMember(t)))}</b>`).join(', ')}.</p><form id="advf"><label>Type<select name="t">${m.types.map(t=>`<option>${t}</option>`).join('')}</select>${fe('advf','t')}</label><label>Montant (FCFA)<input name="a" type="number" min="1" step="1" inputmode="numeric">${fe('advf','a')}</label><button class="btn main" type="submit">${S.mgrOn?'Soumettre la demande':'Accorder l’avance'}</button></form></div></div>`};
+function updH(){const l=document.querySelector('#hres');if(!l)return;const q=(S.hq||'').trim();if(!q){l.innerHTML='';return}const r=found(q);l.innerHTML=r.length?r.map(m=>`<button type="button" class="rs" data-act="hpick" data-id="${m.id}"><span class="avatar sm" style="background:${AV[m.id.charCodeAt(m.id.length-1)%AV.length]}" aria-hidden="true">${esc((m.prenom[0]+m.nom[0]).toUpperCase())}</span><span><b>${esc(nm(m))}</b><small>${esc(m.quartier)}, ${esc(m.tel)}</small></span></button>`).join(''):`<p class="empty" style="padding:8px">Aucun membre ne correspond à « ${esc(q)} ».</p>`}
+function syncH(){const hs=document.querySelector('#hsearch');if(!hs)return;const on=S.role==='membre'&&!S.suivi&&S.auth==='ok'&&S.members.length>0;hs.hidden=!on;if(!on){hs.innerHTML='';return}if(!hs.querySelector||!hs.querySelector('#hq'))hs.innerHTML='<label class="sr-only" for="hq">Rechercher un membre</label><input id="hq" type="search" placeholder="Nom, téléphone" autocomplete="off"><div id="hres" class="hres"></div>';const hq=document.querySelector('#hq');if(hq&&document.activeElement!==hq)hq.value=S.hq||'';updH()}
 function collSec(only){const act=held().filter(c=>MB().cards[c.id].stop===null&&(!only||c.id===only));return `<section class="panel coll"><h2>Enregistrer une collecte</h2>
   <form id="payf"><label>Carte${cpick('payf',act)}</label>
   <label>Nombre de tours<input name="tours" type="number" min="1" step="1" inputmode="numeric" value="1">${fe('payf','tours')}</label>
@@ -599,7 +613,7 @@ function viewAdmin(){const T=tabT(['Koti','Foyer']);if(S.cdet)return detail(S.cd
  const paidDue=sumAll(()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.paid,TODAY),0));
  const lateOf=()=>held(T).reduce((s,c)=>s+sumRows(c.id,r=>r.due-r.paid,TODAY-1),0),lateBefore=sumAll(lateOf),lateCount=each(lateOf).filter(x=>x>0).length,reste=Math.max(0,att-paidDue),pct=att?Math.round(paidDue/att*100):0,refTot=S.refunds.filter(r=>(CN(r.card)||{}).type===T).reduce((s,r)=>s+r.amount,0);
  const pend=S.requests.filter(r=>r.status==='soumise');
- const acts=S.mgrOn?[{h:'#membres',l:'Membres',i:IC.users},{h:'#avances',l:'Avances',i:IC.coin},{h:'#parametres',l:'Réglages',i:IC.gear}]:[{l:'Collecter',i:IC.plus,a:'collopen'},{l:'Inscrire',i:IC.userplus},{h:'#avances',l:'Avances',i:IC.coin}];
+ const acts=S.mgrOn?[{h:'#membres',l:'Membres',i:IC.users},{h:'#avances',l:'Avances',i:IC.coin},{h:'#parametres',l:'Réglages',i:IC.gear}]:[{l:'Collecter',i:IC.plus,a:'collopen'},{l:'Inscrire',i:IC.userplus,a:'insopen'},{l:'Avances',i:IC.coin,a:'advopen'}];
  const lbl=r=>r.type==='arrêt'?'Arrêt de la '+CN(r.card).name:r.type==='avance'?'Avance':'Changement de cartes';
  return `${aseg()}${msgHtml()}
  <div class="m-hero"><span class="m-l">Total encaissé ${mEye()}</span><b class="m-big">${mAmt(p)}</b><div class="m-two m-three"><div><small>Total Avance</small><b>${mAmt(advTotal(T))}</b></div><div><small>Total Bénéfice</small><b>${mAmt(bTot)}</b></div><div><small>Total Reste</small><b>${mAmt(resteT)}</b></div></div>
@@ -634,6 +648,9 @@ function render(){
  const mc=document.querySelector('#mcals');if(mc&&mc.querySelector){const cur=mc.querySelector('[data-cur]');if(cur){const left=cur.offsetLeft,cid=cur.dataset.card,ck=+cur.dataset.k,pv=S.calk,calm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(pv&&pv.id===cid&&pv.k<ck&&mc.scrollTo&&!calm){mc.scrollLeft=cur.previousElementSibling?cur.previousElementSibling.offsetLeft:0;mc.scrollTo({left:left,behavior:'smooth'})}else mc.scrollLeft=left;S.calk={id:cid,k:ck}}}else S.calk=null;
  const old=document.querySelector('#csheet');if(old&&old.remove)old.remove();if(S.csearch&&S.role==='admin'&&!S.suivi&&S.auth==='ok'&&document.body&&document.body.insertAdjacentHTML){document.body.insertAdjacentHTML('beforeend',collSheet());if(S.cfocus){S.cfocus=false;const cq=document.querySelector('#cq');if(cq&&cq.focus)cq.focus()}}
  const old2=document.querySelector('#csheet2');if(old2&&old2.remove)old2.remove();if(S.cs&&S.role==='membre'&&!S.suivi&&S.auth==='ok'&&!S.mdet&&S.members.length&&held().some(c=>c.id===S.cs)&&document.body&&document.body.insertAdjacentHTML)document.body.insertAdjacentHTML('beforeend',cardSheet(S.cs));
+ syncH();
+ const old5=document.querySelector('#csheet5');if(old5&&old5.remove)old5.remove();if(S.av&&S.role==='admin'&&!S.suivi&&S.auth==='ok'&&S.members.length&&(S.aview||'tableau')==='tableau'&&document.body&&document.body.insertAdjacentHTML)document.body.insertAdjacentHTML('beforeend',advSheet());
+ const old4=document.querySelector('#csheet4');if(old4&&old4.remove)old4.remove();if(S.ins&&S.role==='admin'&&!S.suivi&&S.auth==='ok'&&(S.aview||'tableau')==='tableau'&&document.body&&document.body.insertAdjacentHTML)document.body.insertAdjacentHTML('beforeend',insSheet());
  const old3=document.querySelector('#csheet3');if(old3&&old3.remove)old3.remove();if(S.ac&&S.role==='membre'&&!S.suivi&&S.auth==='ok'&&!S.mdet&&S.members.length&&document.body&&document.body.insertAdjacentHTML)document.body.insertAdjacentHTML('beforeend',addSheet());
  const af=document.querySelector('#addf');if(af)af.onsubmit=ajoutCarte;
  const f=$('#payf');if(f)f.onsubmit=pay;const g=$('#advf');if(g)g.onsubmit=giveAdv;const h=$('#regf');if(h)h.onsubmit=inscrire;
@@ -652,7 +669,7 @@ function personForm(e,form,ok){e.preventDefault();const f=new FormData(e.target)
  else if(form==='regf'&&f.get('type_a')&&!CARDS.some(c=>c.type==='Foyer'&&f.get('card_'+c.id)))fail(form,'cards_a','Choisissez au moins une carte Foyer.',v);
  else ok(v,T,f);
  render()}
-const inscrire=e=>personForm(e,'regf',(v,T,f)=>{const id=crypto.randomUUID();const idn=newId(),types=[...(f.get('type_t')?['Koti']:[]),...(f.get('type_a')?['Foyer']:[])],cyc0=f.get('type_t')?parseInt(f.get('cycles'),10):null,chosen=CARDS.filter(c=>types.includes(c.type)&&f.get('card_'+c.id)),mcs=[];const m=mkMember(id,v.nom,v.prenom,T,v.quartier,{},S.gg,idn,types);m.cycles=cyc0;chosen.forEach(c=>{const cc=m.cards[c.id];cc.s=TODAY;cc.v=[{from:1,t:0},{from:TODAY,t:1}];cc.stop=null;cc.mcid=crypto.randomUUID();cc.cycles=c.type==='Koti'?cyc0:null;m.draft[c.id]=1;mcs.push({id:cc.mcid,member_id:id,card_id:c.id,start_date:isoOfDay(TODAY),cycles:cc.cycles})});S.members.push(m);S.gm=id;dbw(async()=>{await ins('members',{id,idn,nom:v.nom,prenom:v.prenom,tel:T,quartier:v.quartier});await ins('member_types',types.map(t=>({member_id:id,type_id:TID[t],cycles:t==='Koti'?cyc0:null})));if(mcs.length)await ins('member_cards',mcs)});log(GM().prenom,`Membre inscrit : ${v.prenom} ${v.nom}, quartier ${v.quartier}.`);setMsg(`${v.prenom} ${v.nom} est inscrit (${types.join(' et ')}${cyc0?', '+cyc0+' mois':''}), identifiant ${idn}. Cartes : ${chosen.map(c=>c.name).join(', ')}. Son lien de suivi est dans « Liens de suivi ».`,true)});
+const inscrire=e=>personForm(e,'regf',(v,T,f)=>{S.ins=false;const id=crypto.randomUUID();const idn=newId(),types=[...(f.get('type_t')?['Koti']:[]),...(f.get('type_a')?['Foyer']:[])],cyc0=f.get('type_t')?parseInt(f.get('cycles'),10):null,chosen=CARDS.filter(c=>types.includes(c.type)&&f.get('card_'+c.id)),mcs=[];const m=mkMember(id,v.nom,v.prenom,T,v.quartier,{},S.gg,idn,types);m.cycles=cyc0;chosen.forEach(c=>{const cc=m.cards[c.id];cc.s=TODAY;cc.v=[{from:1,t:0},{from:TODAY,t:1}];cc.stop=null;cc.mcid=crypto.randomUUID();cc.cycles=c.type==='Koti'?cyc0:null;m.draft[c.id]=1;mcs.push({id:cc.mcid,member_id:id,card_id:c.id,start_date:isoOfDay(TODAY),cycles:cc.cycles})});S.members.push(m);S.gm=id;dbw(async()=>{await ins('members',{id,idn,nom:v.nom,prenom:v.prenom,tel:T,quartier:v.quartier});await ins('member_types',types.map(t=>({member_id:id,type_id:TID[t],cycles:t==='Koti'?cyc0:null})));if(mcs.length)await ins('member_cards',mcs)});log(GM().prenom,`Membre inscrit : ${v.prenom} ${v.nom}, quartier ${v.quartier}.`);setMsg(`${v.prenom} ${v.nom} est inscrit (${types.join(' et ')}${cyc0?', '+cyc0+' mois':''}), identifiant ${idn}. Cartes : ${chosen.map(c=>c.name).join(', ')}. Son lien de suivi est dans « Liens de suivi ».`,true)});
 const creerG=e=>personForm(e,'gestf',(v,T)=>{S.managers.push({id:'g'+(S.managers.length+1),nom:v.nom,prenom:v.prenom,tel:T,quartier:v.quartier});log('Admin',`Gestionnaire créé : ${v.prenom} ${v.nom}, quartier ${v.quartier}.`);setMsg(`${v.prenom} ${v.nom} est créé comme gestionnaire.`,true)});
 
 function giveAdv(e){e.preventDefault();const f=new FormData(e.target),nraw=String(f.get('a')||'').trim(),a=/^\d+$/.test(nraw)?parseInt(nraw,10):NaN,t=String(f.get('t')||''),room=netPool(t)-advMember(t),v={a:f.get('a'),t};
@@ -660,7 +677,7 @@ function giveAdv(e){e.preventDefault();const f=new FormData(e.target),nraw=Strin
  else if(!Number.isInteger(a)||a<=0)fail('advf','a','Saisissez un montant entier supérieur à 0.',v);
  else if(room<=0)fail('advf','a','Rien n’est disponible : le total versé par ce membre sur ce type est déjà couvert par des avances.',v);
  else if(a>room)fail('advf','a',`L’avance dépasse le total versé sur ce type (bénéfice déduit), moins les avances déjà accordées : ${fmt(room)} au plus.`,v);
- else{S.requests.push({id:S.rid++,type:'avance',t,status:'soumise',member:S.gm,amount:a,by:BYG(),detail:`${fmt(a)}, sur le total versé ${t}.`});log(GM().prenom,`Demande d’avance de ${fmt(a)} soumise pour ${nm(MB())}.`);if(S.mgrOn)setMsg('Demande d’avance envoyée à l’administrateur.',true);else if(decide(S.requests[S.requests.length-1],true))setMsg('Avance accordée.',true)}
+ else{S.av=false;S.requests.push({id:S.rid++,type:'avance',t,status:'soumise',member:S.gm,amount:a,by:BYG(),detail:`${fmt(a)}, sur le total versé ${t}.`});log(GM().prenom,`Demande d’avance de ${fmt(a)} soumise pour ${nm(MB())}.`);if(S.mgrOn)setMsg('Demande d’avance envoyée à l’administrateur.',true);else if(decide(S.requests[S.requests.length-1],true))setMsg('Avance accordée.',true)}
  render()}
 
 function pay(e){e.preventDefault();const f=new FormData(e.target),id=f.get('card'),nraw=String(f.get('tours')||'').trim(),n=/^\d+$/.test(nraw)?parseInt(nraw,10):NaN,mode=f.get('mode'),ref=String(f.get('ref')||'').trim(),v={card:id,tours:f.get('tours'),mode,ref:f.get('ref')},w=id?validAmounts(id):[],tt=k=>k+' tour'+(k>1?'s':'');
@@ -683,7 +700,7 @@ function decide(q,okk){const o=S.gm;S.gm=q.member;
   S.gm=o;return true}
 
 document.addEventListener('click',e=>{
- const r=e.target.closest('[data-role]');if(r){S.role=r.dataset.role;S.cdet=null;S.mdet=null;S.csearch=false;S.cs=null;S.ac=false;S.msg=null;S.err=null;S.cf=null;return render()}
+ const r=e.target.closest('[data-role]');if(r){S.role=r.dataset.role;S.cdet=null;S.mdet=null;S.csearch=false;S.cs=null;S.ac=false;S.ins=false;S.av=false;S.msg=null;S.err=null;S.cf=null;return render()}
  const el=e.target.closest('[data-act]');if(!el)return;const act=el.dataset.act,id=el.dataset.id;
  if(act==='pickpc'){S.pc=id;document.querySelectorAll('.cpick').forEach(cp=>{cp.querySelector('input[name=card]').value=id;cp.querySelectorAll('button').forEach(b=>{const on=b.dataset.id===id;b.classList.toggle('main',on);b.setAttribute('aria-pressed',on)})});return}
  if(act==='tog'){const c=e.target;MB().draft[id]=(c&&c.type==='checkbox')?(c.checked?1:0):(MB().draft[id]?0:1)}
@@ -696,12 +713,17 @@ document.addEventListener('click',e=>{
  if(act==='cdet')S.cdet=id;
  if(act==='mopen'){if(S.suivi)S.mdet=id;else S.cs=id;S.mall=false}
  if(act==='cclose')S.cs=null;
+ if(act==='hpick'){S.gm=id;S.mdet=null;S.cs=null;S.hq='';S.err=null;S.cf=null}
+ if(act==='insopen'){S.ins=true;S.err=null}
+ if(act==='insclose'){S.ins=false;S.err=null}
  if(act==='aopen'){S.ac=true;S.at=null;S.err=null}
  if(act==='aclose'){S.ac=false;S.err=null}
  if(act==='cdetail'){S.mdet=id;S.cs=null}
  if(act==='mback'){S.mdet=null;S.mall=false}
  if(act==='meye')S.hide=!S.hide;
- if(act==='collopen'){S.csearch=true;S.cq='';S.cm=null;S.cfocus=true}
+ if(act==='collopen'){S.csearch=true;S.cmode='coll';S.cq='';S.cm=null;S.cfocus=true}
+ if(act==='advopen'){S.csearch=true;S.cmode='adv';S.cq='';S.cm=null;S.cfocus=true}
+ if(act==='advclose'){S.av=false;S.err=null}
  if(act==='collclose')S.csearch=false;
  if(act==='collpick')S.cm=id;
  if(act==='collgo'&&!collGo())return;
@@ -726,8 +748,8 @@ document.addEventListener('click',e=>{
  if(act==='payref'){S.refunds.find(x=>x.id==id).paid=true;dbw(()=>upd('refunds',{paid:true},'id',id));log('Admin','Remboursement payé.')}
  render();if(typeof window!=='undefined'&&window.scrollTo&&['cdet','cback','gocoll','aview','mopen','mback','collgo','cdetail'].includes(act)&&!(act==='mopen'&&!S.suivi))window.scrollTo(0,0)});
 function updTot(){const tot=document.querySelector('#tot'),f=document.querySelector('#payf');if(!tot||!f||!f.elements)return;tot.innerHTML=totHtml(f.elements.card.value,parseInt(f.elements.tours.value,10))}
-document.addEventListener('input',e=>{const t=e.target;if(t&&t.name==='tours')updTot();if(t&&t.id==='q'){S.q=t.value;updRes()}if(t&&t.id==='cq'){S.cq=t.value;S.cm=null;updC()}});
-document.addEventListener('keydown',e=>{if(!S.csearch&&!S.cs&&!S.ac)return;if(e.key==='Escape'){S.csearch=false;S.cs=null;S.ac=false;render();return}if(e.key==='Enter'&&e.target&&e.target.id==='cq'){e.preventDefault();const r=found(S.cq||'');if(!S.cm&&r.length===1)S.cm=r[0].id;if(collGo())render()}});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.name==='tours')updTot();if(t&&t.id==='q'){S.q=t.value;updRes()}if(t&&t.id==='cq'){S.cq=t.value;S.cm=null;updC()}if(t&&t.id==='hq'){S.hq=t.value;updH()}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='hq'){e.preventDefault();const r=found(S.hq||'');if(r.length===1){S.gm=r[0].id;S.mdet=null;S.hq='';render()}return}if(!S.csearch&&!S.cs&&!S.ac&&!S.ins&&!S.av)return;if(e.key==='Escape'){S.csearch=false;S.cs=null;S.ac=false;S.ins=false;S.av=false;render();return}if(e.key==='Enter'&&e.target&&e.target.id==='cq'){e.preventDefault();const r=found(S.cq||'');if(!S.cm&&r.length===1)S.cm=r[0].id;if(collGo())render()}});
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.id==='atype'){S.at=t.value;S.err=null;render();return}if(t&&t.name==='card'){S.pc=t.value;document.querySelectorAll('select[name=card]').forEach(x=>{x.value=S.pc});updTot()}});
 document.addEventListener('toggle',e=>{if(e.target&&e.target.id==='dd')S.dd=e.target.open},true);
 if(typeof window!=='undefined'&&window.addEventListener)window.addEventListener('hashchange',()=>{const p=S.suivi;route();if(p!==S.suivi)boot()});
